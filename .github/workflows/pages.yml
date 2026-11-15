@@ -58,6 +58,8 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
     permissions:
       pages: write
       id-token: write
@@ -90,8 +92,8 @@ jobs:
           for attempt in range(1, 13):
               try:
                   page = read('', attempt).decode('utf-8')
-                  if 'f1ashko' not in page.lower():
-                      raise ValueError('Unexpected home page')
+                  if 'f1ashko' not in page.lower() or 'night-drive' not in page:
+                      raise ValueError('Unexpected home page or older design')
                   raw = read('data/catalog.json', attempt)
                   if hashlib.sha256(raw).hexdigest() != expected:
                       raise ValueError('CDN still serves an older catalog')
@@ -99,10 +101,10 @@ jobs:
                   records = data.get('records')
                   if not isinstance(records, list) or not records:
                       raise ValueError('Published catalog is empty or invalid')
-                  for path in ('app.js', 'catalog.js', 'styles.css'):
+                  for path in ('app.js', 'catalog.js', 'styles.css', 'night.css', 'assets/night-drive.webp'):
                       if not read(path, attempt):
                           raise ValueError(f'{path}: empty file')
-                  print(json.dumps({'url': base, 'http': 200, 'catalogChecksumMatches': True, 'generatedAt': data.get('generatedAt'), 'stats': data.get('stats'), 'first140WithVerifiedGenres': sum(bool(r.get('filmVerified') and r.get('genres')) for r in records if 2 <= r.get('sourceRow', 0) <= 141)}, ensure_ascii=False))
+                  print(json.dumps({'url': base, 'http': 200, 'catalogChecksumMatches': True, 'design': 'night-session', 'generatedAt': data.get('generatedAt'), 'stats': data.get('stats'), 'first140WithVerifiedGenres': sum(bool(r.get('filmVerified') and r.get('genres')) for r in records if 2 <= r.get('sourceRow', 0) <= 141)}, ensure_ascii=False))
                   break
               except (urllib.error.URLError, TimeoutError, ValueError, OSError) as error:
                   last_error = error
@@ -112,3 +114,32 @@ jobs:
           else:
               raise SystemExit(f'Live verification failed: {last_error}')
           PY
+
+  browser-check:
+    if: github.event_name != 'schedule'
+    needs: deploy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install isolated browser test tools
+        run: |
+          python -m pip install playwright==1.57.0
+          python -m playwright install --with-deps chromium
+      - name: Verify live filters, pagination, reload and responsive design
+        env:
+          CATALOG_TEST_URL: ${{ needs.deploy.outputs.page_url }}
+        run: python tests/ui_live.py
+      - name: Save browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-ui-evidence
+          path: test-results/
+          retention-days: 7
+          if-no-files-found: warn

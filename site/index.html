@@ -3,34 +3,42 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#131612">
+  <meta name="theme-color" content="#080c16">
   <meta name="description" content="Каталог фильмов, сериалов и шоу, которые F1ashko смотрел на стримах. Поиск по названию, жанрам, году, стране и участникам. Ссылки на записи из исходной таблицы.">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https: data:; connect-src 'self'; base-uri 'self'; form-action 'none'; object-src 'none'">
   <title>F1ashko — архив просмотров</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./night.css?v=2">
+  <link rel="preload" as="image" href="./assets/night-drive.webp">
   <script type="module" src="./app.js"></script>
 </head>
-<body>
+<body class="night-drive">
   <a class="skip-link" href="#catalog">Перейти к каталогу</a>
   <header class="header">
-    <a class="brand" href="./" aria-label="F1ashko — весь каталог"><span class="brand-icon" aria-hidden="true">▶</span><span>F1ASHKO<span class="brand-caption">АРХИВ ПРОСМОТРОВ</span></span></a>
+    <a class="brand" href="./" aria-label="F1ashko — весь каталог"><span class="brand-icon" aria-hidden="true">F1</span><span class="brand-wordmark">F1ASHKO<span class="brand-caption">АРХИВ ПРОСМОТРОВ</span></span></a>
     <nav aria-label="Ссылки стримера" class="header-nav">
+      <a class="nav-catalog" href="#catalog">Каталог</a>
       <a href="https://boosty.to/f1ashko" target="_blank" rel="noopener noreferrer">Boosty <span aria-hidden="true">↗</span></a>
       <a href="https://t.me/f1ASSko" target="_blank" rel="noopener noreferrer">Telegram <span aria-hidden="true">↗</span></a>
-      <a class="source-link" href="https://docs.google.com/spreadsheets/d/1BAml2MY-A6zeIyGRDfqEhAX_vIBFW4hNbV0SdNgl_9k/edit#gid=0" target="_blank" rel="noopener noreferrer">Исходная таблица <span aria-hidden="true">↗</span></a>
+      <a class="source-link" href="https://docs.google.com/spreadsheets/d/1BAml2MY-A6zeIyGRDfqEhAX_vIBFW4hNbV0SdNgl_9k/edit#gid=0" target="_blank" rel="noopener noreferrer">Таблица <span aria-hidden="true">↗</span></a>
     </nav>
   </header>
   <main>
     <section class="hero" aria-labelledby="hero-title">
-      <div class="hero-copy"><p class="eyebrow"><span class="status-dot"></span> КИНО · СЕРИАЛЫ · ШОУ</p>
-      <h1 id="hero-title">Всё, что смотрели<br>с <span>F1ashko.</span></h1>
-      <p class="hero-description">Найди тот самый фильм — и возвращайся к записи стрима.</p>
-      <div class="hero-stats" id="hero-stats" aria-label="Статистика каталога"><span>Загружаем архив…</span></div></div>
-      <div class="hero-art" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="archive-ticket"><div class="ticket-top">F1 / КИНОАРХИВ <span>●</span></div><div class="ticket-mark">▶</div><div class="ticket-bottom">ПРОСМОТРЕНО ВМЕСТЕ<span>ЕЩЁ ОДИН ВЕЧЕР</span></div></div><div class="ticket-caption">НЕ ПРОСТО СПИСОК ФИЛЬМОВ.</div></div>
+      <div class="hero-scene" aria-hidden="true"></div>
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="status-dot"></span> F1ASHKO <span class="eyebrow-divider">/</span> АРХИВ СТРИМОВ</p>
+        <h1 id="hero-title">ВЕСЬ АРХИВ.<br><span>НА ПОВТОРЕ.</span></h1>
+        <p class="hero-description">Фильмы, сериалы и шоу, которые смотрели вместе.<br>Выбирай просмотр — возвращайся к записи.</p>
+        <div class="hero-actions"><a class="button primary" href="#catalog">Найти просмотр <span aria-hidden="true">↗</span></a><span class="hero-side-note">БЕЗ ЛИШНИХ КРУГОВ.<br>СРАЗУ К НУЖНОМУ КИНО.</span></div>
+        <div class="hero-stats" id="hero-stats" aria-label="Статистика каталога"><span>Загружаем архив…</span></div>
+      </div>
+      <div class="scene-caption" aria-hidden="true"><span class="scene-bracket">[</span> NIGHT SESSION <span class="scene-bracket">]</span><span class="scene-line"></span><span>F1 / REPLAY</span></div>
     </section>
+    <div class="track-strip" aria-hidden="true"><span class="checkered"></span><span>КИНО</span><i>/</i><span>СЕРИАЛЫ</span><i>/</i><span>ШОУ</span><span class="track-rule"></span><span class="track-index">АРХИВ ПРОСМОТРОВ</span></div>
     <section class="catalog-section" id="catalog" aria-labelledby="catalog-title">
-      <div class="section-heading"><div><p class="eyebrow">НАЙТИ И ПЕРЕСМОТРЕТЬ</p><h2 id="catalog-title">Каталог просмотров</h2></div><button class="button secondary" id="random-button" disabled><span aria-hidden="true">⤨</span> Случайный просмотр</button></div>
+      <div class="section-heading"><div><p class="eyebrow">ВЫБЕРИ СВОЙ ПРОСМОТР</p><h2 id="catalog-title">КАТАЛОГ<span class="heading-slash" aria-hidden="true"> //</span></h2></div><button class="button secondary" id="random-button" aria-label="Случайный просмотр" disabled><span aria-hidden="true">⤨</span><span class="random-label">Случайный просмотр</span></button></div>
       <div class="search-row"><label class="main-search"><span class="search-symbol" aria-hidden="true"></span><span class="sr-only">Поиск по названию</span><input id="title-search" type="search" autocomplete="off" placeholder="Название фильма, сериала или шоу…" maxlength="300"><kbd aria-hidden="true">/</kbd></label><button class="button mobile-filter-toggle" id="mobile-filters" aria-expanded="false" aria-controls="filter-panel">Фильтры <span id="mobile-filter-count"></span></button></div>
       <div class="catalog-layout">
         <aside class="filter-panel" id="filter-panel" aria-label="Фильтры каталога">
