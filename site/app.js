@@ -207,10 +207,6 @@ function reset() {
 function renderSourceInformation() {
   const unique = new Set(records.map(r => r.filmId || r.title)).size;
   $('#hero-stats').innerHTML = `<span>Всего в каталоге: <strong>${number(unique)}</strong></span>`;
-  const genreCount = records.filter(r => r.genres.length).length;
-  const verified = records.filter(r => r.filmVerified).length;
-  const missingStaff = records.every(r => !r.actors.length && !r.directors.length && !r.countries.length);
-  $('#data-coverage').innerHTML = `<strong>Данные из таблицы</strong>Жанры: ${number(genreCount)} из ${number(records.length)}<progress class="coverage-progress" value="${genreCount}" max="${records.length}" aria-label="Доля просмотров с жанрами"></progress>${missingStaff ? '<p>Страны и участники ещё не загружены. Эти фильтры появятся после заполнения листа «Метаданные».</p>' : '<p>Фильтры учитывают только заполненные значения.</p>'}<p>С отметкой проверки API: ${number(verified)}.</p>`;
   $('#sync-status').textContent = `Снимок таблицы: ${timestampLabel(payload.generatedAt)}`;
 }
 function creditMarkup(values) {

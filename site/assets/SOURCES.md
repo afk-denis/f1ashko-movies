@@ -9,3 +9,5 @@ Meme reference: https://knowyourmeme.com/memes/toddroll-youre-finally-awake
 SHA-256 of downloaded JPEG: `b8d74ad8465a7b17b615ff1ed401941a6d416df392249a607e6fbe98f330f0e5`
 
 The Elder Scrolls V: Skyrim imagery belongs to Bethesda/ZeniMax. No public-domain or open-license claim is made. The file is served locally by GitHub Pages; no visitor request goes to the image source.
+
+Favicon: original F1 vector. Black/gold palette from the channel banner provided by the owner: https://static-cdn.jtvnw.net/jtv_user_pictures/f1ashko-profile_banner-89d3c32b48cc087a-480.png . The banner is not requested by visitors.

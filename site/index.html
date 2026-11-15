@@ -8,12 +8,12 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https://kinopoiskapiunofficial.tech https://kinopoisk.ru https://www.kinopoisk.ru https://st.kp.yandex.net https://avatars.mds.yandex.net data:; connect-src 'self'; base-uri 'self'; form-action 'none'; object-src 'none'; worker-src 'none'">
   <meta name="referrer" content="no-referrer">
   <title>F1ashko — архив просмотров</title>
-  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="./favicon.svg?v=2" type="image/svg+xml" sizes="any">
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="./night.css?v=2">
-  <link rel="stylesheet" href="./compact.css?v=1">
-  <link rel="preload" as="image" href="./assets/night-drive.webp">
-  <script type="module" src="./app.js?v=4"></script>
+  <link rel="stylesheet" href="./compact.css?v=2">
+  <link rel="preload" as="image" href="./assets/skyrim-awake.jpg">
+  <script type="module" src="./app.js?v=5"></script>
 </head>
 <body class="night-drive">
   <a class="skip-link" href="#catalog">Перейти к каталогу</a>
@@ -29,12 +29,12 @@
     <section class="hero" aria-labelledby="hero-title">
       <div class="hero-scene" aria-hidden="true"></div>
       <div class="hero-copy">
-        <p class="eyebrow"><span class="status-dot"></span> F1ASHKO <span class="eyebrow-divider">/</span> АРХИВ СТРИМОВ</p>
-        <h1 id="hero-title">ВЕСЬ АРХИВ.<br><span>НА ПОВТОРЕ.</span></h1>
+        <p class="eyebrow"><span class="status-dot"></span> F1ASHKO</p>
+        <h1 id="hero-title">АРХИВ <span>кИно</span></h1>
         <p class="hero-description">Фильмы, сериалы и шоу, которые смотрели вместе.</p>
         <div class="hero-stats" id="hero-stats" aria-label="Всего названий в каталоге"><span>Загружаем архив…</span></div>
       </div>
-      <div class="scene-caption" aria-hidden="true"><span class="scene-bracket">[</span> NIGHT SESSION <span class="scene-bracket">]</span><span class="scene-line"></span><span>F1 / REPLAY</span></div>
+
     </section>
     <div class="track-strip" aria-hidden="true"><span class="checkered"></span><span>КИНО</span><i>/</i><span>СЕРИАЛЫ</span><i>/</i><span>ШОУ</span><span class="track-rule"></span><span class="track-index">АРХИВ ПРОСМОТРОВ</span></div>
     <section class="catalog-section" id="catalog" aria-labelledby="catalog-title">
@@ -44,8 +44,7 @@
         <aside class="filter-panel" id="filter-panel" aria-label="Фильтры каталога">
           <div class="filter-heading"><h3>Фильтры</h3><button class="text-button" id="reset-filters">Сбросить</button></div>
           <div id="filters"></div>
-          <div class="filter-footnote">Несколько значений внутри фильтра — «или». Разные фильтры — «и».</div>
-          <div class="data-coverage" id="data-coverage"></div>
+
         </aside>
         <div class="results-panel">
           <div class="results-toolbar"><p id="result-count" role="status" aria-live="polite">Загружаем…</p><div class="toolbar-controls"><label class="sort-label"><span class="sr-only">Сортировка</span><select id="sort"><option value="watched-desc">Сначала новые просмотры</option><option value="watched-asc">Сначала старые просмотры</option><option value="rating-desc">По рейтингу Кинопоиска</option><option value="year-desc">По году выпуска</option><option value="title-asc">По названию А–Я</option></select></label><div class="view-switch" role="group" aria-label="Вид каталога"><button data-view="list" aria-label="Список" aria-pressed="true">☰</button><button data-view="grid" aria-label="Карточки" aria-pressed="false">▦</button></div></div></div>
@@ -57,7 +56,7 @@
       </div>
     </section>
   </main>
-  <footer class="footer"><div><strong>F1ASHKO <span>/ КИНОАРХИВ</span></strong><p>Каталог сообщества. Записи открываются на исходной площадке; для некоторых может требоваться подписка.</p></div><div class="sync-info"><p id="sync-status">Опубликованный снимок каталога</p><p>Новые снимки публикуются по расписанию. Поиск и фильтры работают в браузере.</p></div></footer>
+  <footer class="footer"><div><strong>F1ASHKO <span>/ КИНОАРХИВ</span></strong></div><div class="sync-info"><p id="sync-status">Опубликованный снимок каталога</p></div></footer>
   <dialog id="film-dialog" aria-labelledby="dialog-title"><button class="dialog-close" id="close-dialog" aria-label="Закрыть">×</button><div id="dialog-content"></div></dialog>
   <noscript><p class="noscript">Для поиска и фильтров нужен JavaScript.</p></noscript>
 </body>

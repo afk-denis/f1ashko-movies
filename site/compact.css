@@ -1,14 +1,25 @@
-/* Requested simplified hero; all catalog controls stay usable on narrow screens. */
-.hero { min-height: 340px; padding-top: 34px; padding-bottom: 30px; }
-.hero h1 { margin-top: 20px; }
-.hero-stats { margin-top: 20px; }
+/* Compact Skyrim hero; the catalog keeps its existing palette. */
+.hero { min-height: 306px; padding-top: 38px; padding-bottom: 34px; }
+.hero-copy { max-width: 680px; }
+.hero h1 { margin: 24px 0 18px; font-size: clamp(52px, 6vw, 82px); line-height: 1.05; text-transform: none; }
+.hero h1 span { text-transform: none; }
+.hero-scene { inset: 0 0 0 28%; background-image: url('./assets/skyrim-awake.jpg'); background-position: 62% 42%; filter: saturate(.72); opacity: .93; }
+.hero-scene:after { background: linear-gradient(90deg, #0b111d 0%, #0b111deb 13%, #0b111d85 35%, #0b111d08 64%, #0b111d24), linear-gradient(0deg, #0b111def 0%, transparent 24%, transparent 82%, #0b111d35); }
+.hero-description { max-width: 470px; }
+.hero-stats { margin-top: 22px; }
 .hero-stats > span { display: flex; flex-direction: row; align-items: baseline; gap: 8px; font-size: 13px; }
 .hero-stats strong { font-size: 24px; }
 .section-heading h2 { margin-top: 0; }
 .sync-info { max-width: 400px; }
-@media (max-width: 768px) {
-  .hero { min-height: 0; padding-top: 28px; padding-bottom: 32px; }
-  .hero-stats { margin-top: 18px; }
+.footer { align-items: center; }
+.footer .sync-info p { margin-top: 0; }
+@media (max-width: 780px) {
+  .hero { min-height: 260px; padding-top: 30px; padding-bottom: 32px; }
+  .hero h1 { font-size: clamp(38px, 8.5vw, 64px); letter-spacing: -1.8px; margin: 24px 0 16px; }
+  .hero-scene { inset: 0; background-position: 66% 35%; opacity: .68; }
+  .hero-scene:after { background: linear-gradient(90deg, #0b111df5, #0b111d99 47%, #0b111d30), linear-gradient(0deg, #0b111df2, #0b111d20 52%, #0b111d40); }
+  .hero-description { max-width: 290px; }
+  .hero-stats { margin-top: 20px; }
   .hero-stats > span { font-size: 12px; }
   .hero-stats strong { font-size: 21px; }
 }
