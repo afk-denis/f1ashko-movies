@@ -17,6 +17,14 @@ class ExportTests(unittest.TestCase):
         self.assertEqual(list(data), ['484470'])
         self.assertEqual(data['484470']['фильм api'], 'ok')
 
+    def test_scientific_notation_ids_are_exact(self):
+        sheet = {'rows': 6, 'cells': {'A1': 'КП ID', 'J1': 'Фильм API',
+            'A2': '1.0355286E7', 'J2': 'ok', 'A3': '1.25E0',
+            'A4': 'NaN', 'A5': '1E999999', 'A6': '0'}}
+        data = module.metadata_from_sheet(sheet)
+        self.assertEqual(list(data), ['10355286'])
+        self.assertEqual(data['10355286']['фильм api'], 'ok')
+
     def test_cleared_legacy_genres_not_resurrected(self):
         entry = {'жанры api': 'ужасы', 'фильм api': 'legacy'}
         self.assertEqual(module.genre_values('', entry), [])

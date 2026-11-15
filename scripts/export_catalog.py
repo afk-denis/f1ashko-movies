@@ -7,6 +7,7 @@ An unsuccessful fetch fails the build rather than publishing a misleading snapsh
 from __future__ import annotations
 import argparse
 import datetime as dt
+from decimal import Decimal, InvalidOperation
 import hashlib
 import io
 import json
@@ -156,7 +157,7 @@ def read_workbook(raw: bytes) -> dict[str, dict]:
                     if match:
                         links.setdefault(cell.attrib['r'], safe_url(match.group(1)))
             merges = [item.attrib['ref'] for item in root.findall('s:mergeCells/s:mergeCell', NS)]
-            # Propagate only inside explicit merged ranges. Same date is not same stream.
+            # Propagate only inside explicit merged ranges, never merely by date.
             for merged in merges:
                 anchor = merged.split(':')[0]
                 for ref in cells_in_range(merged):
@@ -215,14 +216,21 @@ def metadata_from_sheet(sheet: dict | None) -> dict[str, dict[str, object]]:
     for row in range(2, sheet['rows'] + 1):
         item = {label: cells.get(f'{col}{row}', '') for label, col in headers.items()}
         key = str(item.get('кп id', '')).strip()
-        match = re.fullmatch(r'(\d+)(?:\.0+)?', key)
-        if match:
-            data[match.group(1)] = item
+        # Google serializes integer IDs as 484470.0 or 1.0355286E7.
+        # Decimal avoids float rounding; reject fractions and unreasonable IDs.
+        if len(key) > 64 or not re.fullmatch(r'\d+(?:\.\d+)?(?:[eE][+-]?\d+)?', key):
+            continue
+        try:
+            number = Decimal(key)
+            if number.is_finite() and 0 < number < 10**15 and number == number.to_integral_value():
+                data[str(int(number))] = item
+        except InvalidOperation:
+            continue
     return data
 
 
 def genre_values(main: object, entry: dict) -> list[str]:
-    # Cleared cells request re-verification; do not resurrect unverified legacy data.
+    # Cleared cells request re-verification; never resurrect unverified legacy data.
     fallback = entry.get('жанры api', '') if entry.get('фильм api') == 'ok' else ''
     return split_values(main or fallback)
 
