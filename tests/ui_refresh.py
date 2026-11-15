@@ -7,7 +7,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from playwright.sync_api import sync_playwright, expect
 
-BASE = os.environ.get('CATALOG_TEST_URL', 'https://d-malashin.github.io/f1ashko-movies/').rstrip('/') + '/'
+BASE = os.environ.get('CATALOG_TEST_URL', 'https://afk-denis.github.io/f1ashko-movies/').rstrip('/') + '/'
 OUT = Path(os.environ.get('SCREENSHOT_DIR', 'test-results'))
 OUT.mkdir(parents=True, exist_ok=True)
 checks = []

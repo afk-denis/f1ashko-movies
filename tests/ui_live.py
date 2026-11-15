@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.parse import urljoin
 from playwright.sync_api import sync_playwright, expect
 
-BASE = os.environ.get('CATALOG_TEST_URL', 'https://d-malashin.github.io/f1ashko-movies/').rstrip('/') + '/'
+BASE = os.environ.get('CATALOG_TEST_URL', 'https://afk-denis.github.io/f1ashko-movies/').rstrip('/') + '/'
 OUT = Path(os.environ.get('SCREENSHOT_DIR', 'test-results'))
 OUT.mkdir(parents=True, exist_ok=True)
 checks, errors, requests = [], [], []
@@ -69,25 +69,34 @@ with sync_playwright() as pw:
         expect(page.locator('#hero-title')).to_have_text('Эй, ты. Наконец-то проснулся.')
         expect(page.locator('#hero-title')).to_have_css('text-transform', 'none')
         expect(page.locator('.scene-caption, .filter-footnote, #data-coverage')).to_have_count(0)
-        check('requested title and removed copy blocks')
-        expect(page.locator('.brand-caption')).to_have_text('АРХИВ кИно')
+        expect(page.locator('.brand-caption')).to_have_text('кИноархив')
         expect(page.locator('.brand-caption')).to_have_css('text-transform', 'none')
+        expect(page.locator('.brand-caption')).to_have_css('font-size', '14px')
+        expect(page).to_have_title('F1ASHKO / кИноархив')
+        expect(page.locator('.footer strong')).to_have_text('F1ASHKO / кИноархив')
+        check('exact mixed-case identity in header, footer and page title')
         expect(page.locator('.hero-copy .eyebrow, .checkered, .track-strip, .heading-slash')).to_have_count(0)
         expect(page.locator('.brand-icon')).to_have_css('transform', 'none')
         expect(page.locator('#hero-title')).to_have_css('font-style', 'normal')
         expect(page.locator('#hero-title')).to_have_css('transform', 'none')
         expect(page.locator('.brand-wordmark')).to_have_css('font-style', 'normal')
-        check('channel wording and no racing symbols or skewed typography')
+        check('no racing symbols or skewed typography')
         expect(page.locator('#hero-title span')).to_have_css('color', 'rgb(242, 172, 0)')
         expect(page.locator('.rating strong').first).to_have_css('color', 'rgb(242, 172, 0)')
         expect(page.locator('.brand-icon')).to_have_css('color', 'rgb(242, 172, 0)')
         check('gold banner accents used for title, logo and ratings')
-
+        expect(page.locator('#hero-stats > span')).to_have_css('font-size', '18px')
+        expect(page.locator('#hero-stats strong')).to_have_css('font-size', '24px')
+        hb = page.locator('.hero').bounding_box()
+        sb = page.locator('#hero-stats').bounding_box()
+        tb = page.locator('#hero-title').bounding_box()
+        check('counter top-right; only label enlarged; no greeting overlap',
+              abs((hb['x'] + hb['width'] - sb['x'] - sb['width']) - 48) < 2
+              and abs(sb['y'] - hb['y'] - 24) < 2 and sb['y'] + sb['height'] <= tb['y'])
         background = page.locator('.hero-scene').evaluate('(node) => getComputedStyle(node).backgroundImage')
         check('local Skyrim hero background', 'assets/skyrim-awake.jpg' in background)
         icon = context.request.get(urljoin(BASE, 'favicon.svg?v=2'))
         check('black-gold F1 favicon is served locally', icon.status == 200 and '<title>F1</title>' in icon.text() and '#f2ac00' in icon.text())
-
         check('default pagination renders 24 results', page.locator('.movie-card').count() == min(24, len(records)))
         check('desktop has no horizontal overflow', page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
 
@@ -183,7 +192,17 @@ with sync_playwright() as pw:
             expect(mp.locator('.movie-card').first).to_be_visible()
             check(f'no horizontal overflow at {width}px', mp.evaluate('document.documentElement.scrollWidth <= innerWidth'))
             expect(mp.locator('#hero-title')).to_have_text('Эй, ты. Наконец-то проснулся.')
-            expect(mp.locator('.brand-caption')).to_have_text('АРХИВ кИно')
+            expect(mp.locator('.brand-caption')).to_have_text('кИноархив')
+            expect(mp.locator('.brand-caption')).to_have_css('text-transform', 'none')
+            expect(mp.locator('#hero-stats > span')).to_have_css('font-size', '16px')
+            expect(mp.locator('#hero-stats strong')).to_have_css('font-size', '21px')
+            hb = mp.locator('.hero').bounding_box()
+            sb = mp.locator('#hero-stats').bounding_box()
+            tb = mp.locator('#hero-title').bounding_box()
+            inset = 15 if width < 359 else 20
+            check(f'mobile label enlarged but number unchanged at {width}px',
+                  abs((hb['x'] + hb['width'] - sb['x'] - sb['width']) - inset) < 2
+                  and sb['y'] + sb['height'] <= tb['y'])
             check(f'hero title fits at {width}px', mp.locator('#hero-title').evaluate('(n) => n.scrollWidth <= n.clientWidth + 1'))
 
             if width == 390:

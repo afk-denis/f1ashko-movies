@@ -79,6 +79,8 @@ jobs:
           import hashlib, json, os, time, urllib.error, urllib.parse, urllib.request
           base = os.environ['PAGE_URL'].rstrip('/') + '/'
           expected = os.environ['EXPECTED_CATALOG_SHA256']
+          if base != 'https://afk-denis.github.io/f1ashko-movies/':
+              raise SystemExit('Unexpected Pages owner or publication URL: ' + base)
           if not base.startswith('https://') or len(expected) != 64:
               raise SystemExit('Missing deployment URL or catalog checksum')
           def read(path, attempt):
@@ -98,13 +100,15 @@ jobs:
                       raise ValueError('Removed controls are still present')
                   if 'Эй, ты. <span>Наконец-то проснулся.</span>' not in page or 'assets/skyrim-awake.jpg' not in page:
                       raise ValueError('Skyrim hero update is not published yet')
+                  if '<span class="brand-caption">кИноархив</span>' not in page or 'identity.css?v=1' not in page:
+                      raise ValueError('Mixed-case identity update is not published yet')
+                  if '<title>F1ASHKO / кИноархив</title>' not in page or '<span>/ кИноархив</span>' not in page:
+                      raise ValueError('Page title or footer identity is outdated')
                   if any(label in page for label in ('NIGHT SESSION', 'АРХИВ СТРИМОВ', 'id="data-coverage"', 'filter-footnote', 'class="checkered"', 'class="track-strip"', 'class="heading-slash"')):
                       raise ValueError('Removed labels are still present')
                   favicon = read('favicon.svg', attempt).decode('utf-8')
                   if '<title>F1</title>' not in favicon or '#f2ac00' not in favicon:
                       raise ValueError('Channel-colored F1 favicon is not published yet')
-                  if '<span class="brand-caption">АРХИВ кИно</span>' not in page or 'compact.css?v=3' not in page:
-                      raise ValueError('Gold channel branding is not published yet')
                   raw = read('data/catalog.json', attempt)
                   if hashlib.sha256(raw).hexdigest() != expected:
                       raise ValueError('CDN still serves an older catalog')
@@ -112,10 +116,10 @@ jobs:
                   records = data.get('records')
                   if not isinstance(records, list) or not records:
                       raise ValueError('Published catalog is empty or invalid')
-                  for path in ('app.js', 'catalog.js', 'styles.css', 'night.css', 'compact.css', 'assets/skyrim-awake.jpg'):
+                  for path in ('app.js', 'catalog.js', 'styles.css', 'night.css', 'compact.css', 'assets/skyrim-awake.jpg', 'favicon.svg', 'identity.css'):
                       if not read(path, attempt):
                           raise ValueError(f'{path}: empty file')
-                  print(json.dumps({'url': base, 'http': 200, 'catalogChecksumMatches': True, 'design': 'skyrim-gold-archive', 'favicon': 'black-gold-F1', 'generatedAt': data.get('generatedAt'), 'stats': data.get('stats')}, ensure_ascii=False))
+                  print(json.dumps({'url': base, 'http': 200, 'catalogChecksumMatches': True, 'design': 'skyrim-gold-identity', 'generatedAt': data.get('generatedAt'), 'stats': data.get('stats')}, ensure_ascii=False))
                   break
               except (urllib.error.URLError, TimeoutError, ValueError, OSError) as error:
                   last_error = error
