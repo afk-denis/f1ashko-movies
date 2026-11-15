@@ -18,6 +18,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      catalog_sha256: ${{ steps.catalog_hash.outputs.sha256 }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -37,6 +39,16 @@ jobs:
         run: python3 scripts/export_catalog.py
       - name: Test filters and validate published dataset
         run: node --test tests/*.test.js
+      - name: Record catalog checksum
+        id: catalog_hash
+        run: |
+          python3 - <<'PY'
+          import hashlib, os
+          from pathlib import Path
+          digest = hashlib.sha256(Path('site/data/catalog.json').read_bytes()).hexdigest()
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+              output.write(f'sha256={digest}\n')
+          PY
       - name: Upload only the public site
         uses: actions/upload-pages-artifact@v4
         with:
@@ -56,3 +68,47 @@ jobs:
       - name: Publish
         id: deployment
         uses: actions/deploy-pages@v4
+      - name: Verify live site and exact published catalog
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+          EXPECTED_CATALOG_SHA256: ${{ needs.build.outputs.catalog_sha256 }}
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, time, urllib.error, urllib.parse, urllib.request
+          base = os.environ['PAGE_URL'].rstrip('/') + '/'
+          expected = os.environ['EXPECTED_CATALOG_SHA256']
+          if not base.startswith('https://') or len(expected) != 64:
+              raise SystemExit('Missing deployment URL or catalog checksum')
+          def read(path, attempt):
+              query = urllib.parse.urlencode({'verify': os.environ['GITHUB_RUN_ID'] + '-' + str(attempt)})
+              request = urllib.request.Request(base + path + '?' + query, headers={'Cache-Control': 'no-cache', 'User-Agent': 'F1ashko-Pages-Check'})
+              with urllib.request.urlopen(request, timeout=15) as response:
+                  if response.status != 200:
+                      raise ValueError(f'{path}: HTTP {response.status}')
+                  return response.read()
+          last_error = None
+          for attempt in range(1, 13):
+              try:
+                  page = read('', attempt).decode('utf-8')
+                  if 'f1ashko' not in page.lower():
+                      raise ValueError('Unexpected home page')
+                  raw = read('data/catalog.json', attempt)
+                  if hashlib.sha256(raw).hexdigest() != expected:
+                      raise ValueError('CDN still serves an older catalog')
+                  data = json.loads(raw)
+                  records = data.get('records')
+                  if not isinstance(records, list) or not records:
+                      raise ValueError('Published catalog is empty or invalid')
+                  for path in ('app.js', 'catalog.js', 'styles.css'):
+                      if not read(path, attempt):
+                          raise ValueError(f'{path}: empty file')
+                  print(json.dumps({'url': base, 'http': 200, 'catalogChecksumMatches': True, 'generatedAt': data.get('generatedAt'), 'stats': data.get('stats'), 'first140WithVerifiedGenres': sum(bool(r.get('filmVerified') and r.get('genres')) for r in records if 2 <= r.get('sourceRow', 0) <= 141)}, ensure_ascii=False))
+                  break
+              except (urllib.error.URLError, TimeoutError, ValueError, OSError) as error:
+                  last_error = error
+                  print(f'Live verification attempt {attempt}/12: {error}')
+                  if attempt < 12:
+                      time.sleep(5)
+          else:
+              raise SystemExit(f'Live verification failed: {last_error}')
+          PY
