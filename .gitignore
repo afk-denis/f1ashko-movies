@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+*.private.*
+*.xlsx
+*.pem
+*.key
+*.log
+__pycache__/
+.DS_Store
+test-results/
+*_private.*
