@@ -5,7 +5,7 @@ on:
     branches: [main]
   workflow_dispatch:
   schedule:
-    - cron: '17,47 * * * *'
+    - cron: '3,13,23,33,43,53 * * * *'
 
 permissions:
   contents: read
@@ -92,8 +92,10 @@ jobs:
           for attempt in range(1, 13):
               try:
                   page = read('', attempt).decode('utf-8')
-                  if 'f1ashko' not in page.lower() or 'night-drive' not in page:
+                  if 'f1ashko' not in page.lower() or 'night-drive' not in page or 'compact.css' not in page:
                       raise ValueError('Unexpected home page or older design')
+                  if 'id="recording-only"' in page or 'hero-actions' in page or 'id="random-button"' in page:
+                      raise ValueError('Removed controls are still present')
                   raw = read('data/catalog.json', attempt)
                   if hashlib.sha256(raw).hexdigest() != expected:
                       raise ValueError('CDN still serves an older catalog')
@@ -101,10 +103,10 @@ jobs:
                   records = data.get('records')
                   if not isinstance(records, list) or not records:
                       raise ValueError('Published catalog is empty or invalid')
-                  for path in ('app.js', 'catalog.js', 'styles.css', 'night.css', 'assets/night-drive.webp'):
+                  for path in ('app.js', 'catalog.js', 'styles.css', 'night.css', 'compact.css', 'assets/night-drive.webp'):
                       if not read(path, attempt):
                           raise ValueError(f'{path}: empty file')
-                  print(json.dumps({'url': base, 'http': 200, 'catalogChecksumMatches': True, 'design': 'night-session', 'generatedAt': data.get('generatedAt'), 'stats': data.get('stats'), 'first140WithVerifiedGenres': sum(bool(r.get('filmVerified') and r.get('genres')) for r in records if 2 <= r.get('sourceRow', 0) <= 141)}, ensure_ascii=False))
+                  print(json.dumps({'url': base, 'http': 200, 'catalogChecksumMatches': True, 'design': 'compact-night-session', 'generatedAt': data.get('generatedAt'), 'stats': data.get('stats')}, ensure_ascii=False))
                   break
               except (urllib.error.URLError, TimeoutError, ValueError, OSError) as error:
                   last_error = error
@@ -134,7 +136,9 @@ jobs:
       - name: Verify live filters, pagination, reload and responsive design
         env:
           CATALOG_TEST_URL: ${{ needs.deploy.outputs.page_url }}
-        run: python tests/ui_live.py
+        run: |
+          python tests/ui_live.py
+          python tests/ui_refresh.py
       - name: Save browser evidence
         if: always()
         uses: actions/upload-artifact@v4

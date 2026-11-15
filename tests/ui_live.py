@@ -1,7 +1,5 @@
-"""Read-only Playwright checks against the deployed catalog. No film API calls.
-
-Usage: CATALOG_TEST_URL=https://.../ python tests/ui_live.py
-Real catalog checks and synthetic cast/director checks are reported separately.
+"""Read-only Playwright checks against the deployed catalog; no film API calls.
+Real-data checks and synthetic cast/director checks are reported separately.
 """
 import copy
 import json
@@ -15,9 +13,7 @@ from playwright.sync_api import sync_playwright, expect
 BASE = os.environ.get('CATALOG_TEST_URL', 'https://d-malashin.github.io/f1ashko-movies/').rstrip('/') + '/'
 OUT = Path(os.environ.get('SCREENSHOT_DIR', 'test-results'))
 OUT.mkdir(parents=True, exist_ok=True)
-checks = []
-errors = []
-requests = []
+checks, errors, requests = [], [], []
 
 def norm(value):
     value = unicodedata.normalize('NFKC', str(value or '')).lower().replace('ё', 'е')
@@ -59,10 +55,17 @@ with sync_playwright() as pw:
         expect(page.locator('.movie-card').first).to_be_visible()
         expect(page.locator('body')).to_have_class('night-drive')
         expect(page.locator('link[href*="night.css"]')).to_have_count(1)
-        check('night design loaded; real catalog is not empty', len(records) > 0)
+        expect(page.locator('link[href*="compact.css"]')).to_have_count(1)
+        check('compact night design loaded; real catalog is not empty', len(records) > 0)
         image = context.request.get(urljoin(BASE, 'assets/night-drive.webp'))
         check('reference scene served by our own Pages host', image.status == 200 and len(image.body()) > 1000)
         count(page, len(records))
+        expect(page.locator('#hero-stats strong')).to_have_count(1)
+        unique = len({str(r.get('filmId') or r['title']) for r in records})
+        hero_count = int(re.sub(r'\D', '', page.locator('#hero-stats strong').inner_text()))
+        check('hero has exactly one unique-title counter', hero_count == unique)
+        expect(page.locator('.hero-actions, .hero-side-note, #random-button, #recording-only')).to_have_count(0)
+        check('CTA, extra buttons and recording-only checkbox are removed')
         check('default pagination renders 24 results', page.locator('.movie-card').count() == min(24, len(records)))
         check('desktop has no horizontal overflow', page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
 
@@ -134,10 +137,6 @@ with sync_playwright() as pw:
         check('empty results are explicit')
         page.locator('[data-reset]').click()
         count(page, len(records))
-        page.locator('#recording-only').check()
-        count(page, sum(bool(r.get('watchUrl')) for r in records))
-        check('recording-link-only filter')
-        page.locator('#reset-filters').click()
         page.locator('[data-view=grid]').click()
         expect(page.locator('#results')).to_have_class('results-grid')
         page.locator('.movie-title').first.click()
@@ -174,7 +173,7 @@ with sync_playwright() as pw:
             check(f'mobile filter selection at {width}px')
             mobile.close()
 
-        # Explicitly synthetic: verify cast/director UI before these metadata exist.
+        # Explicitly synthetic: cast/director fields and old linked-only bookmarks.
         fixture = copy.deepcopy(data)
         fixture['records'] = [
             {'id': 'fixture-1', 'title': 'Проверка А', 'year': 2001, 'genres': ['драма'], 'countries': ['Тестландия'], 'actors': ['Пётр Тестов'], 'directors': ['Анна Тестова']},
@@ -183,8 +182,9 @@ with sync_playwright() as pw:
         synthetic = browser.new_context(viewport={'width': 1440, 'height': 1080}, reduced_motion='reduce')
         synthetic.route('**/data/catalog.json*', lambda route: route.fulfill(json=fixture))
         sp = synthetic.new_page()
-        sp.goto(BASE, wait_until='domcontentloaded')
+        sp.goto(BASE + '?linked=1', wait_until='domcontentloaded')
         expect(sp.locator('.movie-card')).to_have_count(2)
+        check('synthetic: old linked=1 links do not silently hide records', 'linked=' not in sp.url)
         select(sp, 'actors', 'петр', 'Пётр Тестов')
         select(sp, 'directors', 'анна', 'Анна Тестова')
         expect(sp.locator('.movie-title')).to_have_text(['Проверка А'])
@@ -192,7 +192,7 @@ with sync_playwright() as pw:
         synthetic.close()
         check('browsing never sends an API key or film-detail API request', not any('x-api-key' in r['headers'] or '/api/v2.2/films/' in r['url'] for r in requests))
         check('no browser exceptions across all viewports', not errors)
-        report = {'status': 'passed', 'baseUrl': BASE, 'checks': checks, 'checkCount': len(checks), 'catalogStats': data.get('stats'), 'generatedAt': data.get('generatedAt'), 'syntheticOnly': ['cast/director fixture'], 'pageErrors': errors}
+        report = {'status': 'passed', 'baseUrl': BASE, 'checks': checks, 'checkCount': len(checks), 'catalogStats': data.get('stats'), 'generatedAt': data.get('generatedAt'), 'syntheticOnly': ['cast/director fixture', 'old linked bookmark'], 'pageErrors': errors}
         (OUT/'ui-report.json').write_text(json.dumps(report, ensure_ascii=False, indent=2))
         print(json.dumps(report, ensure_ascii=False), flush=True)
     except Exception:

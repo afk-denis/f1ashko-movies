@@ -11,7 +11,8 @@ const timestampLabel = value => {
   const date = new Date(value);
   return Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(date) : 'неизвестная дата';
 };
-let state = stateFromQuery(location.search);
+// Ignore old ?linked=1 links: the recording-only control has been removed.
+let state = { ...stateFromQuery(location.search), linked: false };
 let records = [], payload = null, facets = {}, filtered = [], loaded = false;
 let requestCounter = 0;
 const widgets = new Map();
@@ -185,7 +186,6 @@ function render() {
   $('#results').innerHTML = page.items.length ? page.items.map(movieMarkup).join('') : `<div class="empty-state"><div class="empty-symbol" aria-hidden="true">⌕</div><h3>Ничего не нашлось</h3><p>Попробуйте убрать часть фильтров или изменить название. У некоторых просмотров метаданные ещё не заполнены.</p><button class="button secondary" data-reset>Сбросить фильтры</button></div>`;
   $('#results').setAttribute('aria-busy', 'false');
   $('#result-count').innerHTML = `<strong>${number(filtered.length)}</strong> ${plural(filtered.length, ['просмотр', 'просмотра', 'просмотров'])} <span>из ${number(records.length)}</span>`;
-  $('#random-button').disabled = !filtered.length;
   $('#page-range').textContent = `${number(page.start)}–${number(page.end)} из ${number(page.total)}`;
   renderPagination(page);
   let chips = '';
@@ -195,7 +195,7 @@ function render() {
   }
   if (state.q.trim()) chips += `<button class="active-chip" data-clear-query aria-label="Очистить поиск">Поиск: ${e(state.q)}<span class="chip-cross" aria-hidden="true">×</span></button>`;
   $('#active-filters').innerHTML = chips;
-  const count = Object.values(state.filters).reduce((sum, list) => sum + list.length, 0) + Number(state.linked);
+  const count = Object.values(state.filters).reduce((sum, list) => sum + list.length, 0);
   $('#mobile-filter-count').textContent = count ? String(count) : '';
   syncControls();
 }
@@ -203,7 +203,6 @@ function syncControls() {
   if (document.activeElement !== $('#title-search')) $('#title-search').value = state.q;
   $('#sort').value = state.sort;
   $('#page-size').value = String(state.pageSize);
-  $('#recording-only').checked = state.linked;
   document.querySelectorAll('[data-view]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.view === state.view)));
 }
 function reset() {
@@ -215,13 +214,13 @@ function reset() {
 }
 function renderSourceInformation() {
   const unique = new Set(records.map(r => r.filmId || r.title)).size;
-  const linked = records.filter(r => r.watchUrl).length;
-  $('#hero-stats').innerHTML = `<span><strong>${number(records.length)}</strong> ${plural(records.length, ['просмотр', 'просмотра', 'просмотров'])}</span><span><strong>${number(unique)}</strong> ${plural(unique, ['название', 'названия', 'названий'])}</span><span><strong>${number(linked)}</strong> со ссылкой</span>`;
+  $('#hero-stats').innerHTML = `<span>Всего в каталоге: <strong>${number(unique)}</strong></span>`;
   const genreCount = records.filter(r => r.genres.length).length;
   const verified = records.filter(r => r.filmVerified).length;
   const missingStaff = records.every(r => !r.actors.length && !r.directors.length && !r.countries.length);
   $('#data-coverage').innerHTML = `<strong>Данные из таблицы</strong>Жанры: ${number(genreCount)} из ${number(records.length)}<progress class="coverage-progress" value="${genreCount}" max="${records.length}" aria-label="Доля просмотров с жанрами"></progress>${missingStaff ? '<p>Страны и участники ещё не загружены. Эти фильтры появятся после заполнения листа «Метаданные».</p>' : '<p>Фильтры учитывают только заполненные значения.</p>'}<p>С отметкой проверки API: ${number(verified)}.</p>`;
-  $('#sync-status').textContent = `Снимок таблицы: ${timestampLabel(payload.generatedAt)}`;
+  $('#sync-status').textContent = `Данные от ${timestampLabel(payload.generatedAt)} · обновляются автоматически`;
+  $('#sync-status').title = 'Таблица публикуется автоматически каждые 10 минут. Возможна задержка GitHub Actions. Открытая вкладка проверяет обновления каждые 5 минут.';
 }
 function sourceRowUrl(record) {
   const source = safeUrl(payload?.source?.url);
@@ -248,52 +247,81 @@ function openRecord(id) {
   if (!$('#film-dialog').open) $('#film-dialog').showModal();
 }
 
-async function loadCatalog(force = false) {
+const AUTO_REFRESH_MS = 5 * 60 * 1000;
+let lastCheckedAt = 0;
+let refreshInFlight = false;
+function validCatalog(data) {
+  return data?.schemaVersion === 1 && Array.isArray(data.records) && data.records.length > 0 && data.records.length <= 100000 && Number.isFinite(Date.parse(data.generatedAt));
+}
+async function loadCatalog(force = false, background = false) {
+  if (refreshInFlight) return;
+  refreshInFlight = true;
   const requestId = ++requestCounter;
   $('#refresh-button').disabled = true;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15000);
   try {
     const url = new URL('./data/catalog.json', import.meta.url);
-    if (force) url.searchParams.set('refresh', String(Date.now()));
+    // A changing URL prevents an intermediate cache from repeatedly serving an old snapshot.
+    url.searchParams.set('refresh', String(Date.now()));
     const response = await fetch(url, { cache: 'no-store', signal: controller.signal, credentials: 'omit' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
-    if (data.schemaVersion !== 1 || !Array.isArray(data.records) || !data.records.length || data.records.length > 100000 || !Number.isFinite(Date.parse(data.generatedAt))) throw new Error('Некорректные данные каталога');
+    if (!validCatalog(data)) throw new Error('Некорректные данные каталога');
     if (requestId !== requestCounter) return;
-    const prepared = prepareRecords(data.records);
-    if (!prepared.length) throw new Error('В каталоге нет корректных строк');
-    records = prepared; payload = data; loaded = true;
-    try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch { /* Private mode/quota does not block the catalog. */ }
+    if (loaded && Date.parse(data.generatedAt) < Date.parse(payload.generatedAt)) throw new Error('Сервер вернул устаревший снимок');
+    const changed = !loaded || data.generatedAt !== payload.generatedAt;
+    if (changed) {
+      const prepared = prepareRecords(data.records);
+      if (!prepared.length) throw new Error('В каталоге нет корректных строк');
+      // Preserve a query whose debounce has not fired yet, along with all other controls.
+      clearTimeout(searchTimer);
+      if (loaded) state.q = $('#title-search').value;
+      records = prepared; payload = data; loaded = true;
+      try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch { /* Private mode/quota does not block the catalog. */ }
+      renderSourceInformation(); render(); commit(false);
+    }
     $('#load-notice').hidden = true;
-    renderSourceInformation(); render(); commit(false);
-    if (force) toast('Загружена последняя опубликованная версия каталога');
+    if (force) toast(changed ? 'Каталог обновлён' : 'Это последняя опубликованная версия. Изменения таблицы появятся автоматически.');
+    document.dispatchEvent(new CustomEvent('catalog:checked', { detail: { changed, generatedAt: data.generatedAt } }));
   } catch (error) {
     if (requestId !== requestCounter) return;
     if (!loaded) {
       try {
         const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
-        if (cached?.schemaVersion === 1 && Array.isArray(cached.records) && cached.records.length && Number.isFinite(Date.parse(cached.generatedAt))) {
+        if (validCatalog(cached)) {
           records = prepareRecords(cached.records); payload = cached; loaded = records.length > 0;
+          if (loaded) { renderSourceInformation(); render(); commit(false); }
         }
       } catch { /* Ignore a corrupt cache. */ }
     }
     if (loaded) {
-      renderSourceInformation(); render();
-      $('#load-notice').textContent = `Не удалось обновить данные. Показана сохранённая версия от ${timestampLabel(payload.generatedAt)}. Кнопка обновления — внизу страницы.`;
+      $('#load-notice').textContent = `Не удалось проверить обновления. Показаны данные от ${timestampLabel(payload.generatedAt)}. Повторим автоматически; фильтры сохранены.`;
       $('#load-notice').hidden = false;
     } else {
       $('#results').setAttribute('aria-busy', 'false');
       $('#results').innerHTML = '<div class="empty-state"><h3>Не удалось загрузить каталог</h3><p>Проверьте подключение или откройте исходную таблицу. Фильмы не заменяются демонстрационными данными.</p><button class="button secondary" data-retry>Повторить</button></div>';
       $('#result-count').textContent = 'Каталог недоступен';
-      $('#hero-stats').textContent = 'Источник — исходная таблица просмотров';
+      $('#hero-stats').textContent = 'Каталог временно недоступен';
     }
-    console.warn('Catalog load failed:', error instanceof Error ? error.message : 'unknown error');
+    if (!background) console.warn('Catalog load failed:', error instanceof Error ? error.message : 'unknown error');
   } finally {
     clearTimeout(timer);
+    lastCheckedAt = Date.now();
+    refreshInFlight = false;
     if (requestId === requestCounter) $('#refresh-button').disabled = false;
   }
 }
+function refreshWhenIdle() {
+  if (document.hidden || refreshInFlight || Date.now() - lastCheckedAt < AUTO_REFRESH_MS) return;
+  // Do not replace a focused result, open dialog, or dropdown while it is being used.
+  if ($('#film-dialog').open || [...widgets.values()].some(widget => widget.opened)) return;
+  if (document.activeElement && $('#results').contains(document.activeElement)) return;
+  void loadCatalog(false, true);
+}
+setInterval(refreshWhenIdle, AUTO_REFRESH_MS);
+document.addEventListener('visibilitychange', refreshWhenIdle);
+window.addEventListener('focus', refreshWhenIdle);
 
 let searchTimer;
 $('#title-search').addEventListener('input', event => {
@@ -304,10 +332,8 @@ $('#title-search').addEventListener('input', event => {
 $('#title-search').addEventListener('keydown', event => { if (event.key === 'Escape') { clearTimeout(searchTimer); state.q = ''; event.target.value = ''; state.page = 1; render(); commit(false); } });
 $('#sort').addEventListener('change', event => { state.sort = event.target.value; state.page = 1; render(); commit(); });
 $('#page-size').addEventListener('change', event => { state.pageSize = Number(event.target.value); state.page = 1; render(); commit(); });
-$('#recording-only').addEventListener('change', event => { state.linked = event.target.checked; state.page = 1; render(); commit(); });
 $('#reset-filters').addEventListener('click', reset);
 $('#refresh-button').addEventListener('click', () => loadCatalog(true));
-$('#random-button').addEventListener('click', () => { if (filtered.length) openRecord(filtered[Math.floor(Math.random() * filtered.length)].id); });
 $('#mobile-filters').addEventListener('click', () => {
   const open = $('#filter-panel').classList.toggle('mobile-open');
   $('#mobile-filters').setAttribute('aria-expanded', String(open));
@@ -342,7 +368,7 @@ $('#film-dialog').addEventListener('click', event => {
   const rect = event.target.getBoundingClientRect();
   if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) event.target.close();
 });
-window.addEventListener('popstate', () => { clearTimeout(searchTimer); state = stateFromQuery(location.search); $('#title-search').value = state.q; render(); });
+window.addEventListener('popstate', () => { clearTimeout(searchTimer); state = { ...stateFromQuery(location.search), linked: false }; $('#title-search').value = state.q; render(); });
 document.addEventListener('keydown', event => {
   if (event.key === '/' && !event.ctrlKey && !event.metaKey && !event.altKey && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) && !document.activeElement?.isContentEditable && !$('#film-dialog').open) {
     event.preventDefault(); $('#title-search').focus();
