@@ -11,131 +11,29 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Apply reviewed branding edits
+      - name: Apply the reviewed edits with corrected test indentation
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import hashlib, re
-          expected = {
-              'site/index.html': '5f70547dfa021213e72b7739942a24efc7daf96b0150bda8066bcee3e4a5ba62',
-              'site/app.js': '2f86b142112b23fac8696463e5187b2eb2b8fc2b8c3e37dac1474e57fd71ae0f',
-              'site/compact.css': '69dad23ccfd3e0de68d34fbcbe05f577a7631d0ef2ed8d8091f25015a2e61a63',
-              'site/favicon.svg': '98e20ca38427815efea9d43beb2fdad2161808eed312db1623a90e8ce0c379ce',
-              'tests/ui_live.py': 'd858f6292f38172b5bb914f39cbf02668e0a6d5048ba861e033b74f7235a934e',
-              '.github/workflows/pages.yml': 'c94d68397845df6322fddeca93eab22accdb39ab7de36ac14caa255853a59d04',
-          }
-          for name, digest in expected.items():
-              assert hashlib.sha256(Path(name).read_bytes()).hexdigest() == digest, 'Unexpected source change: '+name
-          p = Path('site/index.html')
-          s = p.read_text()
-          pairs = [
-              ('./compact.css?v=1', './compact.css?v=2'),
-              ('./app.js?v=4', './app.js?v=5'),
-              ('./assets/night-drive.webp', './assets/skyrim-awake.jpg'),
-              ('F1ASHKO <span class="eyebrow-divider">/</span> АРХИВ СТРИМОВ', 'F1ASHKO'),
-              ('<h1 id="hero-title">ВЕСЬ АРХИВ.<br><span>НА ПОВТОРЕ.</span></h1>', '<h1 id="hero-title">АРХИВ <span>кИно</span></h1>'),
-              ('<p>Каталог сообщества. Записи открываются на исходной площадке; для некоторых может требоваться подписка.</p>', ''),
-              ('<p>Новые снимки публикуются по расписанию. Поиск и фильтры работают в браузере.</p>', ''),
-              ('<link rel="icon" href="./favicon.svg" type="image/svg+xml">', '<link rel="icon" href="./favicon.svg?v=2" type="image/svg+xml" sizes="any">'),
-          ]
-          for old, new in pairs:
-              assert old in s, 'Expected HTML missing: '+old
-              s = s.replace(old, new)
-          for name in ('scene-caption', 'filter-footnote', 'data-coverage'):
-              s, count = re.subn(r'^\s*<div class="'+name+r'".*?</div>\n', '\n', s, flags=re.M)
-              assert count == 1, name
-          p.write_text(s)
-          p = Path('site/app.js')
-          s, count = re.subn(r"  const genreCount = records\.filter\(r => r\.genres\.length\)\.length;.*?(?=  \$\('#sync-status'\))", '', p.read_text(), flags=re.S)
-          assert count == 1 and 'data-coverage' not in s
-          p.write_text(s)
-          Path('site/favicon.svg').write_text('''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="F1">
-            <title>F1</title>
-            <rect width="64" height="64" rx="12" fill="#0b0b0b"/>
-            <path fill="#f2ac00" d="M10 15h24v9H20v7h12v9H20v10H10zM37 21l8-6h9v35H43V28h-6z"/>
-          </svg>
-          ''')
-          Path('site/compact.css').write_text('''/* Compact Skyrim hero; the catalog keeps its existing palette. */
-          .hero { min-height: 306px; padding-top: 38px; padding-bottom: 34px; }
-          .hero-copy { max-width: 680px; }
-          .hero h1 { margin: 24px 0 18px; font-size: clamp(52px, 6vw, 82px); line-height: 1.05; text-transform: none; }
-          .hero h1 span { text-transform: none; }
-          .hero-scene { inset: 0 0 0 28%; background-image: url('./assets/skyrim-awake.jpg'); background-position: 62% 42%; filter: saturate(.72); opacity: .93; }
-          .hero-scene:after { background: linear-gradient(90deg, #0b111d 0%, #0b111deb 13%, #0b111d85 35%, #0b111d08 64%, #0b111d24), linear-gradient(0deg, #0b111def 0%, transparent 24%, transparent 82%, #0b111d35); }
-          .hero-description { max-width: 470px; }
-          .hero-stats { margin-top: 22px; }
-          .hero-stats > span { display: flex; flex-direction: row; align-items: baseline; gap: 8px; font-size: 13px; }
-          .hero-stats strong { font-size: 24px; }
-          .section-heading h2 { margin-top: 0; }
-          .sync-info { max-width: 400px; }
-          .footer { align-items: center; }
-          .footer .sync-info p { margin-top: 0; }
-          @media (max-width: 780px) {
-            .hero { min-height: 260px; padding-top: 30px; padding-bottom: 32px; }
-            .hero h1 { font-size: clamp(38px, 8.5vw, 64px); letter-spacing: -1.8px; margin: 24px 0 16px; }
-            .hero-scene { inset: 0; background-position: 66% 35%; opacity: .68; }
-            .hero-scene:after { background: linear-gradient(90deg, #0b111df5, #0b111d99 47%, #0b111d30), linear-gradient(0deg, #0b111df2, #0b111d20 52%, #0b111d40); }
-            .hero-description { max-width: 290px; }
-            .hero-stats { margin-top: 20px; }
-            .hero-stats > span { font-size: 12px; }
-            .hero-stats strong { font-size: 21px; }
-          }
-          ''')
-          p = Path('tests/ui_live.py')
-          s = p.read_text().replace('assets/night-drive.webp', 'assets/skyrim-awake.jpg')
-          anchor = "        check('CTA, extra buttons and recording-only checkbox are removed')"
-          assert anchor in s
-          extra = '''
-                  expect(page.locator('#hero-title')).to_have_text('АРХИВ кИно')
-                  expect(page.locator('#hero-title')).to_have_css('text-transform', 'none')
-                  expect(page.locator('.scene-caption, .filter-footnote, #data-coverage')).to_have_count(0)
-                  check('requested title and removed copy blocks')
-                  background = page.locator('.hero-scene').evaluate('(node) => getComputedStyle(node).backgroundImage')
-                  check('local Skyrim hero background', 'assets/skyrim-awake.jpg' in background)
-                  icon = context.request.get(urljoin(BASE, 'favicon.svg?v=2'))
-                  check('black-gold F1 favicon is served locally', icon.status == 200 and '<title>F1</title>' in icon.text() and '#f2ac00' in icon.text())
-          '''
-          # Align the added assertions with the existing try block.
-          extra = '\n' + '\n'.join(line[8:] if line.startswith('        ') else line for line in extra.splitlines()[1:])
-          p.write_text(s.replace(anchor, anchor + extra))
-          p = Path('.github/workflows/pages.yml')
-          s = p.read_text().replace("'assets/night-drive.webp'", "'assets/skyrim-awake.jpg', 'favicon.svg'").replace("'design': 'compact-night-session'", "'design': 'skyrim-archive'")
-          anchor = "                  raw = read('data/catalog.json', attempt)"
-          assert anchor in s
-          s = s.replace(anchor, '''                  if 'АРХИВ <span>кИно</span>' not in page or 'assets/skyrim-awake.jpg' not in page:
-                                raise ValueError('Skyrim hero update is not published yet')
-          '''.replace('                                raise', '                      raise') + anchor)
-          p.write_text(s)
-          Path('tests/branding.test.js').write_text('''import test from 'node:test';
-          import assert from 'node:assert/strict';
-          import { readFileSync, existsSync } from 'node:fs';
-          const html = readFileSync(new URL('../site/index.html', import.meta.url), 'utf8');
-          const app = readFileSync(new URL('../site/app.js', import.meta.url), 'utf8');
-          test('requested hero text and local Skyrim background', () => {
-            assert.ok(html.includes('АРХИВ <span>кИно</span>'));
-            assert.ok(html.includes('./assets/skyrim-awake.jpg'));
-            assert.ok(existsSync(new URL('../site/assets/skyrim-awake.jpg', import.meta.url)));
-          });
-          test('unwanted labels are removed from markup and JavaScript', () => {
-            for (const text of ['ВЕСЬ АРХИВ.', 'НА ПОВТОРЕ.', 'АРХИВ СТРИМОВ', 'NIGHT SESSION', 'F1 / REPLAY', 'Несколько значений внутри фильтра', 'Данные из таблицы', 'Фильтры учитывают только заполненные значения.', 'С отметкой проверки API:', 'Каталог сообщества.', 'Новые снимки публикуются по расписанию.', 'data-coverage']) assert.ok(!html.includes(text) && !app.includes(text), text);
-          });
-          test('favicon is original self-contained gold F1 on black', () => {
-            const svg = readFileSync(new URL('../site/favicon.svg', import.meta.url), 'utf8');
-            for (const text of ['<title>F1</title>', '#f2ac00', '#0b0b0b']) assert.ok(svg.includes(text));
-            assert.ok(!svg.includes('<text') && !svg.includes('<script') && !svg.includes('<image'));
-            assert.ok(html.includes('favicon.svg?v=2'));
-          });
-          test('catalog behavior remains passive and controls are kept', () => {
-            assert.equal(app.split('await fetch(').length - 1, 1);
-            assert.ok(!app.includes('setInterval(') && !html.includes('refresh-button'));
-            for (const id of ['title-search', 'filters', 'sort', 'pagination', 'hero-stats']) assert.ok(html.includes('id="' + id + '"'));
-          });
-          ''')
-          p = Path('site/assets/SOURCES.md')
-          p.write_text(p.read_text() + '\nFavicon: original F1 vector. Black/gold palette from the channel banner provided by the owner: https://static-cdn.jtvnw.net/jtv_user_pictures/f1ashko-profile_banner-89d3c32b48cc087a-480.png . The banner is not requested by visitors.\n')
+          import subprocess, textwrap
+          ref='305851b6a5403b77479bc0992b81ac42ac3e429e'
+          text=subprocess.check_output(['git','show',ref+':.github/workflows/banner-palette-once.yml'],text=True)
+          marker="          python3 - <<'PY'\n"
+          start=text.index(marker)+len(marker)
+          end=text.index('\n          PY',start)
+          code=textwrap.dedent(text[start:end])
+          lines=code.splitlines()
+          matches=[i for i,line in enumerate(lines) if "line[8:] if line.startswith" in line]
+          assert len(matches)==1
+          lines[matches[0]]='extra = extra.rstrip() + chr(10)'
+          path=Path('/tmp/branding-edits.py')
+          path.write_text('\n'.join(lines)+'\n')
+          subprocess.run(['python3',str(path)],check=True)
           PY
       - name: Verify changed source and catalog
         run: |
