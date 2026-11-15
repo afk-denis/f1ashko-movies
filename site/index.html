@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#131612">
+  <meta name="description" content="Каталог фильмов, сериалов и шоу, которые F1ashko смотрел на стримах. Поиск по названию, жанрам, году, стране и участникам. Ссылки на записи из исходной таблицы.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https: data:; connect-src 'self'; base-uri 'self'; form-action 'none'; object-src 'none'">
+  <title>F1ashko — архив просмотров</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#catalog">Перейти к каталогу</a>
+  <header class="header">
+    <a class="brand" href="./" aria-label="F1ashko — весь каталог"><span class="brand-icon" aria-hidden="true">▶</span><span>F1ASHKO<span class="brand-caption">АРХИВ ПРОСМОТРОВ</span></span></a>
+    <nav aria-label="Ссылки стримера" class="header-nav">
+      <a href="https://boosty.to/f1ashko" target="_blank" rel="noopener noreferrer">Boosty <span aria-hidden="true">↗</span></a>
+      <a href="https://t.me/f1ASSko" target="_blank" rel="noopener noreferrer">Telegram <span aria-hidden="true">↗</span></a>
+      <a class="source-link" href="https://docs.google.com/spreadsheets/d/1BAml2MY-A6zeIyGRDfqEhAX_vIBFW4hNbV0SdNgl_9k/edit#gid=0" target="_blank" rel="noopener noreferrer">Исходная таблица <span aria-hidden="true">↗</span></a>
+    </nav>
+  </header>
+  <main>
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-copy"><p class="eyebrow"><span class="status-dot"></span> КИНО · СЕРИАЛЫ · ШОУ</p>
+      <h1 id="hero-title">Всё, что смотрели<br>с <span>F1ashko.</span></h1>
+      <p class="hero-description">Найди тот самый фильм — и возвращайся к записи стрима.</p>
+      <div class="hero-stats" id="hero-stats" aria-label="Статистика каталога"><span>Загружаем архив…</span></div></div>
+      <div class="hero-art" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="archive-ticket"><div class="ticket-top">F1 / КИНОАРХИВ <span>●</span></div><div class="ticket-mark">▶</div><div class="ticket-bottom">ПРОСМОТРЕНО ВМЕСТЕ<span>ЕЩЁ ОДИН ВЕЧЕР</span></div></div><div class="ticket-caption">НЕ ПРОСТО СПИСОК ФИЛЬМОВ.</div></div>
+    </section>
+    <section class="catalog-section" id="catalog" aria-labelledby="catalog-title">
+      <div class="section-heading"><div><p class="eyebrow">НАЙТИ И ПЕРЕСМОТРЕТЬ</p><h2 id="catalog-title">Каталог просмотров</h2></div><button class="button secondary" id="random-button" disabled><span aria-hidden="true">⤨</span> Случайный просмотр</button></div>
+      <div class="search-row"><label class="main-search"><span class="search-symbol" aria-hidden="true"></span><span class="sr-only">Поиск по названию</span><input id="title-search" type="search" autocomplete="off" placeholder="Название фильма, сериала или шоу…" maxlength="300"><kbd aria-hidden="true">/</kbd></label><button class="button mobile-filter-toggle" id="mobile-filters" aria-expanded="false" aria-controls="filter-panel">Фильтры <span id="mobile-filter-count"></span></button></div>
+      <div class="catalog-layout">
+        <aside class="filter-panel" id="filter-panel" aria-label="Фильтры каталога">
+          <div class="filter-heading"><h3>Фильтры</h3><button class="text-button" id="reset-filters">Сбросить</button></div>
+          <div id="filters"></div>
+          <label class="recording-only"><input type="checkbox" id="recording-only"><span>Только со ссылкой на запись</span></label>
+          <div class="filter-footnote">Несколько значений внутри фильтра — «или». Разные фильтры — «и».</div>
+          <div class="data-coverage" id="data-coverage"></div>
+        </aside>
+        <div class="results-panel">
+          <div class="results-toolbar"><p id="result-count" role="status" aria-live="polite">Загружаем…</p><div class="toolbar-controls"><label class="sort-label"><span class="sr-only">Сортировка</span><select id="sort"><option value="watched-desc">Сначала новые просмотры</option><option value="watched-asc">Сначала старые просмотры</option><option value="rating-desc">По рейтингу Кинопоиска</option><option value="year-desc">По году выпуска</option><option value="title-asc">По названию А–Я</option></select></label><div class="view-switch" role="group" aria-label="Вид каталога"><button data-view="list" aria-label="Список" aria-pressed="true">☰</button><button data-view="grid" aria-label="Карточки" aria-pressed="false">▦</button></div></div></div>
+          <div class="active-filters" id="active-filters" aria-label="Выбранные фильтры"></div>
+          <div id="load-notice" class="load-notice" hidden></div>
+          <div id="results" class="results-list" aria-busy="true"><div class="loading-card"></div><div class="loading-card"></div><div class="loading-card"></div></div>
+          <div class="pagination-wrap"><label class="page-size">На странице <select id="page-size"><option>12</option><option selected>24</option><option>48</option><option>96</option></select></label><nav class="pagination" id="pagination" aria-label="Страницы каталога"></nav><span class="page-range" id="page-range"></span></div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <footer class="footer"><div><strong>F1ASHKO <span>/ КИНОАРХИВ</span></strong><p>Каталог сообщества. Записи открываются на исходной площадке; для некоторых может требоваться подписка.</p></div><div class="sync-info"><p id="sync-status">Источник — Google Sheets</p><button class="text-button" id="refresh-button">Обновить данные сайта ↻</button></div></footer>
+  <dialog id="film-dialog" aria-labelledby="dialog-title"><button class="dialog-close" id="close-dialog" aria-label="Закрыть">×</button><div id="dialog-content"></div></dialog>
+  <div class="toast" id="toast" role="status" hidden></div>
+  <noscript><p class="noscript">Для поиска и фильтров нужен JavaScript. <a href="https://docs.google.com/spreadsheets/d/1BAml2MY-A6zeIyGRDfqEhAX_vIBFW4hNbV0SdNgl_9k/edit">Открыть исходную таблицу</a>.</p></noscript>
+</body>
+</html>
