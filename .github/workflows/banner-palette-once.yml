@@ -14,21 +14,134 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Apply deterministic branding edits with source fingerprint checks
+      - name: Apply reviewed branding edits
         run: |
           python3 - <<'PY'
-          import base64, hashlib, pathlib, subprocess, zlib
-          payload='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'
-          data=zlib.decompress(base64.b64decode(payload))
-          assert hashlib.sha256(data).hexdigest()=='6777ead8bc2e23eae2ab65e14381b22103d1b4afb1bc86ad7434a0b425553c6c', 'Transfer checksum mismatch'
-          path=pathlib.Path('/tmp/apply-branding.py')
-          path.write_bytes(data)
-          subprocess.run(['python3',str(path)],check=True)
+          from pathlib import Path
+          import hashlib, re
+          expected = {
+              'site/index.html': '5f70547dfa021213e72b7739942a24efc7daf96b0150bda8066bcee3e4a5ba62',
+              'site/app.js': '2f86b142112b23fac8696463e5187b2eb2b8fc2b8c3e37dac1474e57fd71ae0f',
+              'site/compact.css': '69dad23ccfd3e0de68d34fbcbe05f577a7631d0ef2ed8d8091f25015a2e61a63',
+              'site/favicon.svg': '98e20ca38427815efea9d43beb2fdad2161808eed312db1623a90e8ce0c379ce',
+              'tests/ui_live.py': 'd858f6292f38172b5bb914f39cbf02668e0a6d5048ba861e033b74f7235a934e',
+              '.github/workflows/pages.yml': 'c94d68397845df6322fddeca93eab22accdb39ab7de36ac14caa255853a59d04',
+          }
+          for name, digest in expected.items():
+              assert hashlib.sha256(Path(name).read_bytes()).hexdigest() == digest, 'Unexpected source change: '+name
+          p = Path('site/index.html')
+          s = p.read_text()
+          pairs = [
+              ('./compact.css?v=1', './compact.css?v=2'),
+              ('./app.js?v=4', './app.js?v=5'),
+              ('./assets/night-drive.webp', './assets/skyrim-awake.jpg'),
+              ('F1ASHKO <span class="eyebrow-divider">/</span> АРХИВ СТРИМОВ', 'F1ASHKO'),
+              ('<h1 id="hero-title">ВЕСЬ АРХИВ.<br><span>НА ПОВТОРЕ.</span></h1>', '<h1 id="hero-title">АРХИВ <span>кИно</span></h1>'),
+              ('<p>Каталог сообщества. Записи открываются на исходной площадке; для некоторых может требоваться подписка.</p>', ''),
+              ('<p>Новые снимки публикуются по расписанию. Поиск и фильтры работают в браузере.</p>', ''),
+              ('<link rel="icon" href="./favicon.svg" type="image/svg+xml">', '<link rel="icon" href="./favicon.svg?v=2" type="image/svg+xml" sizes="any">'),
+          ]
+          for old, new in pairs:
+              assert old in s, 'Expected HTML missing: '+old
+              s = s.replace(old, new)
+          for name in ('scene-caption', 'filter-footnote', 'data-coverage'):
+              s, count = re.subn(r'^\s*<div class="'+name+r'".*?</div>\n', '\n', s, flags=re.M)
+              assert count == 1, name
+          p.write_text(s)
+          p = Path('site/app.js')
+          s, count = re.subn(r"  const genreCount = records\.filter\(r => r\.genres\.length\)\.length;.*?(?=  \$\('#sync-status'\))", '', p.read_text(), flags=re.S)
+          assert count == 1 and 'data-coverage' not in s
+          p.write_text(s)
+          Path('site/favicon.svg').write_text('''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="F1">
+            <title>F1</title>
+            <rect width="64" height="64" rx="12" fill="#0b0b0b"/>
+            <path fill="#f2ac00" d="M10 15h24v9H20v7h12v9H20v10H10zM37 21l8-6h9v35H43V28h-6z"/>
+          </svg>
+          ''')
+          Path('site/compact.css').write_text('''/* Compact Skyrim hero; the catalog keeps its existing palette. */
+          .hero { min-height: 306px; padding-top: 38px; padding-bottom: 34px; }
+          .hero-copy { max-width: 680px; }
+          .hero h1 { margin: 24px 0 18px; font-size: clamp(52px, 6vw, 82px); line-height: 1.05; text-transform: none; }
+          .hero h1 span { text-transform: none; }
+          .hero-scene { inset: 0 0 0 28%; background-image: url('./assets/skyrim-awake.jpg'); background-position: 62% 42%; filter: saturate(.72); opacity: .93; }
+          .hero-scene:after { background: linear-gradient(90deg, #0b111d 0%, #0b111deb 13%, #0b111d85 35%, #0b111d08 64%, #0b111d24), linear-gradient(0deg, #0b111def 0%, transparent 24%, transparent 82%, #0b111d35); }
+          .hero-description { max-width: 470px; }
+          .hero-stats { margin-top: 22px; }
+          .hero-stats > span { display: flex; flex-direction: row; align-items: baseline; gap: 8px; font-size: 13px; }
+          .hero-stats strong { font-size: 24px; }
+          .section-heading h2 { margin-top: 0; }
+          .sync-info { max-width: 400px; }
+          .footer { align-items: center; }
+          .footer .sync-info p { margin-top: 0; }
+          @media (max-width: 780px) {
+            .hero { min-height: 260px; padding-top: 30px; padding-bottom: 32px; }
+            .hero h1 { font-size: clamp(38px, 8.5vw, 64px); letter-spacing: -1.8px; margin: 24px 0 16px; }
+            .hero-scene { inset: 0; background-position: 66% 35%; opacity: .68; }
+            .hero-scene:after { background: linear-gradient(90deg, #0b111df5, #0b111d99 47%, #0b111d30), linear-gradient(0deg, #0b111df2, #0b111d20 52%, #0b111d40); }
+            .hero-description { max-width: 290px; }
+            .hero-stats { margin-top: 20px; }
+            .hero-stats > span { font-size: 12px; }
+            .hero-stats strong { font-size: 21px; }
+          }
+          ''')
+          p = Path('tests/ui_live.py')
+          s = p.read_text().replace('assets/night-drive.webp', 'assets/skyrim-awake.jpg')
+          anchor = "        check('CTA, extra buttons and recording-only checkbox are removed')"
+          assert anchor in s
+          extra = '''
+                  expect(page.locator('#hero-title')).to_have_text('АРХИВ кИно')
+                  expect(page.locator('#hero-title')).to_have_css('text-transform', 'none')
+                  expect(page.locator('.scene-caption, .filter-footnote, #data-coverage')).to_have_count(0)
+                  check('requested title and removed copy blocks')
+                  background = page.locator('.hero-scene').evaluate('(node) => getComputedStyle(node).backgroundImage')
+                  check('local Skyrim hero background', 'assets/skyrim-awake.jpg' in background)
+                  icon = context.request.get(urljoin(BASE, 'favicon.svg?v=2'))
+                  check('black-gold F1 favicon is served locally', icon.status == 200 and '<title>F1</title>' in icon.text() and '#f2ac00' in icon.text())
+          '''
+          # Align the added assertions with the existing try block.
+          extra = '\n' + '\n'.join(line[8:] if line.startswith('        ') else line for line in extra.splitlines()[1:])
+          p.write_text(s.replace(anchor, anchor + extra))
+          p = Path('.github/workflows/pages.yml')
+          s = p.read_text().replace("'assets/night-drive.webp'", "'assets/skyrim-awake.jpg', 'favicon.svg'").replace("'design': 'compact-night-session'", "'design': 'skyrim-archive'")
+          anchor = "                  raw = read('data/catalog.json', attempt)"
+          assert anchor in s
+          s = s.replace(anchor, '''                  if 'АРХИВ <span>кИно</span>' not in page or 'assets/skyrim-awake.jpg' not in page:
+                                raise ValueError('Skyrim hero update is not published yet')
+          '''.replace('                                raise', '                      raise') + anchor)
+          p.write_text(s)
+          Path('tests/branding.test.js').write_text('''import test from 'node:test';
+          import assert from 'node:assert/strict';
+          import { readFileSync, existsSync } from 'node:fs';
+          const html = readFileSync(new URL('../site/index.html', import.meta.url), 'utf8');
+          const app = readFileSync(new URL('../site/app.js', import.meta.url), 'utf8');
+          test('requested hero text and local Skyrim background', () => {
+            assert.ok(html.includes('АРХИВ <span>кИно</span>'));
+            assert.ok(html.includes('./assets/skyrim-awake.jpg'));
+            assert.ok(existsSync(new URL('../site/assets/skyrim-awake.jpg', import.meta.url)));
+          });
+          test('unwanted labels are removed from markup and JavaScript', () => {
+            for (const text of ['ВЕСЬ АРХИВ.', 'НА ПОВТОРЕ.', 'АРХИВ СТРИМОВ', 'NIGHT SESSION', 'F1 / REPLAY', 'Несколько значений внутри фильтра', 'Данные из таблицы', 'Фильтры учитывают только заполненные значения.', 'С отметкой проверки API:', 'Каталог сообщества.', 'Новые снимки публикуются по расписанию.', 'data-coverage']) assert.ok(!html.includes(text) && !app.includes(text), text);
+          });
+          test('favicon is original self-contained gold F1 on black', () => {
+            const svg = readFileSync(new URL('../site/favicon.svg', import.meta.url), 'utf8');
+            for (const text of ['<title>F1</title>', '#f2ac00', '#0b0b0b']) assert.ok(svg.includes(text));
+            assert.ok(!svg.includes('<text') && !svg.includes('<script') && !svg.includes('<image'));
+            assert.ok(html.includes('favicon.svg?v=2'));
+          });
+          test('catalog behavior remains passive and controls are kept', () => {
+            assert.equal(app.split('await fetch(').length - 1, 1);
+            assert.ok(!app.includes('setInterval(') && !html.includes('refresh-button'));
+            for (const id of ['title-search', 'filters', 'sort', 'pagination', 'hero-stats']) assert.ok(html.includes('id="' + id + '"'));
+          });
+          ''')
+          p = Path('site/assets/SOURCES.md')
+          p.write_text(p.read_text() + '\nFavicon: original F1 vector. Black/gold palette from the channel banner provided by the owner: https://static-cdn.jtvnw.net/jtv_user_pictures/f1ashko-profile_banner-89d3c32b48cc087a-480.png . The banner is not requested by visitors.\n')
           PY
       - name: Verify changed source and catalog
         run: |
           git diff --check
           node --check site/app.js
+          python3 -m py_compile tests/ui_live.py
           python3 -m unittest discover -s tests -p 'test_*.py'
           python3 scripts/export_catalog.py
           node --test tests/*.test.js
