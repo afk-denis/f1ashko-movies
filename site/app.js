@@ -11,19 +11,11 @@ const timestampLabel = value => {
   const date = new Date(value);
   return Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(date) : 'неизвестная дата';
 };
-// Ignore old ?linked=1 links: the recording-only control has been removed.
+// Query parameters never enable the removed recording-only filter.
 let state = { ...stateFromQuery(location.search), linked: false };
 let records = [], payload = null, facets = {}, filtered = [], loaded = false;
-let requestCounter = 0;
 const widgets = new Map();
 const CACHE_KEY = 'f1ashko-public-catalog-v1';
-let toastTimer;
-function toast(message) {
-  clearTimeout(toastTimer);
-  $('#toast').textContent = message;
-  $('#toast').hidden = false;
-  toastTimer = setTimeout(() => { $('#toast').hidden = true; }, 3500);
-}
 function commit(push = true) {
   const query = stateToQuery(state);
   const url = `${location.pathname}${query ? `?${query}` : ''}${location.hash}`;
@@ -219,15 +211,7 @@ function renderSourceInformation() {
   const verified = records.filter(r => r.filmVerified).length;
   const missingStaff = records.every(r => !r.actors.length && !r.directors.length && !r.countries.length);
   $('#data-coverage').innerHTML = `<strong>Данные из таблицы</strong>Жанры: ${number(genreCount)} из ${number(records.length)}<progress class="coverage-progress" value="${genreCount}" max="${records.length}" aria-label="Доля просмотров с жанрами"></progress>${missingStaff ? '<p>Страны и участники ещё не загружены. Эти фильтры появятся после заполнения листа «Метаданные».</p>' : '<p>Фильтры учитывают только заполненные значения.</p>'}<p>С отметкой проверки API: ${number(verified)}.</p>`;
-  $('#sync-status').textContent = `Данные от ${timestampLabel(payload.generatedAt)} · обновляются автоматически`;
-  $('#sync-status').title = 'Таблица публикуется автоматически каждые 10 минут. Возможна задержка GitHub Actions. Открытая вкладка проверяет обновления каждые 5 минут.';
-}
-function sourceRowUrl(record) {
-  const source = safeUrl(payload?.source?.url);
-  if (!source) return '';
-  const url = new URL(source);
-  url.hash = `gid=0&range=B${record.sourceRow}:G${record.sourceRow}`;
-  return url.href;
+  $('#sync-status').textContent = `Снимок таблицы: ${timestampLabel(payload.generatedAt)}`;
 }
 function creditMarkup(values) {
   if (!values.length) return '<span class="missing-genres">Пока не заполнено в таблице</span>';
@@ -237,91 +221,58 @@ function creditMarkup(values) {
 function openRecord(id) {
   const record = records.find(r => r.id === id);
   if (!record) return;
-  const source = sourceRowUrl(record);
   $('#dialog-content').innerHTML = `<p class="dialog-eyebrow">${e(record.type.toUpperCase())} / ПРОСМОТР НА СТРИМЕ</p><h2 class="dialog-title" id="dialog-title">${e(record.title)}</h2>
     <p class="dialog-subtitle">Смотрели ${e(dateLabel(record.watchedAt))}${record.rating !== null ? ` · Кинопоиск ${record.rating.toFixed(1)}` : ''}</p>
     <div class="dialog-tags">${record._values.genres.map(g => `<span>${e(g.label)}</span>`).join('') || '<span>Жанры ещё не заполнены</span>'}</div>
     <dl class="dialog-details"><dt>Год выпуска</dt><dd>${record.year || 'Не указан'}</dd><dt>Страны</dt><dd>${creditMarkup(record.countries)}</dd><dt>Режиссёры</dt><dd>${creditMarkup(record.directors)}</dd><dt>Актёры</dt><dd>${creditMarkup(record.actors)}</dd></dl>
-    <div class="dialog-actions">${record.watchUrl ? `<a class="button primary" href="${e(record.watchUrl)}" target="_blank" rel="noopener noreferrer">▶ Открыть запись ↗</a>` : '<span class="no-recording">В таблице нет ссылки на запись</span>'}${record.kinopoiskUrl ? `<a class="button secondary" href="${e(record.kinopoiskUrl)}" target="_blank" rel="noopener noreferrer">Кинопоиск ↗</a>` : ''}${source ? `<a class="button secondary" href="${e(source)}" target="_blank" rel="noopener noreferrer">Строка таблицы ↗</a>` : ''}</div>
+    <div class="dialog-actions">${record.watchUrl ? `<a class="button primary" href="${e(record.watchUrl)}" target="_blank" rel="noopener noreferrer">▶ Открыть запись ↗</a>` : '<span class="no-recording">В таблице нет ссылки на запись</span>'}${record.kinopoiskUrl ? `<a class="button secondary" href="${e(record.kinopoiskUrl)}" target="_blank" rel="noopener noreferrer">Кинопоиск ↗</a>` : ''}</div>
     <p class="dialog-note">${record.filmVerified ? 'Метаданные фильма получены через API.' : 'Жанры показаны как в таблице; проверка через API ещё не подтверждена.'} Запись открывается на исходной площадке, где может требоваться подписка.</p>`;
   if (!$('#film-dialog').open) $('#film-dialog').showModal();
 }
 
-const AUTO_REFRESH_MS = 5 * 60 * 1000;
-let lastCheckedAt = 0;
-let refreshInFlight = false;
+// Exactly one static JSON request per document. No update controls, polling,
+// focus/visibility refresh, cache-busting URLs, API credentials or write endpoints.
+let loadStarted = false;
 function validCatalog(data) {
   return data?.schemaVersion === 1 && Array.isArray(data.records) && data.records.length > 0 && data.records.length <= 100000 && Number.isFinite(Date.parse(data.generatedAt));
 }
-async function loadCatalog(force = false, background = false) {
-  if (refreshInFlight) return;
-  refreshInFlight = true;
-  const requestId = ++requestCounter;
-  $('#refresh-button').disabled = true;
+async function loadCatalog() {
+  if (loadStarted) return;
+  loadStarted = true;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15000);
   try {
     const url = new URL('./data/catalog.json', import.meta.url);
-    // A changing URL prevents an intermediate cache from repeatedly serving an old snapshot.
-    url.searchParams.set('refresh', String(Date.now()));
-    const response = await fetch(url, { cache: 'no-store', signal: controller.signal, credentials: 'omit' });
+    const response = await fetch(url, { cache: 'default', signal: controller.signal, credentials: 'omit', redirect: 'error' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     if (!validCatalog(data)) throw new Error('Некорректные данные каталога');
-    if (requestId !== requestCounter) return;
-    if (loaded && Date.parse(data.generatedAt) < Date.parse(payload.generatedAt)) throw new Error('Сервер вернул устаревший снимок');
-    const changed = !loaded || data.generatedAt !== payload.generatedAt;
-    if (changed) {
-      const prepared = prepareRecords(data.records);
-      if (!prepared.length) throw new Error('В каталоге нет корректных строк');
-      // Preserve a query whose debounce has not fired yet, along with all other controls.
-      clearTimeout(searchTimer);
-      if (loaded) state.q = $('#title-search').value;
-      records = prepared; payload = data; loaded = true;
-      try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch { /* Private mode/quota does not block the catalog. */ }
-      renderSourceInformation(); render(); commit(false);
-    }
+    const prepared = prepareRecords(data.records);
+    if (!prepared.length) throw new Error('В каталоге нет корректных строк');
+    records = prepared; payload = data; loaded = true;
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch { /* Storage is optional. */ }
     $('#load-notice').hidden = true;
-    if (force) toast(changed ? 'Каталог обновлён' : 'Это последняя опубликованная версия. Изменения таблицы появятся автоматически.');
-    document.dispatchEvent(new CustomEvent('catalog:checked', { detail: { changed, generatedAt: data.generatedAt } }));
+    renderSourceInformation(); render(); commit(false);
   } catch (error) {
-    if (requestId !== requestCounter) return;
-    if (!loaded) {
-      try {
-        const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
-        if (validCatalog(cached)) {
-          records = prepareRecords(cached.records); payload = cached; loaded = records.length > 0;
-          if (loaded) { renderSourceInformation(); render(); commit(false); }
-        }
-      } catch { /* Ignore a corrupt cache. */ }
-    }
+    try {
+      const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+      if (validCatalog(cached)) {
+        records = prepareRecords(cached.records); payload = cached; loaded = records.length > 0;
+      }
+    } catch { /* Ignore a corrupt cache; do not retry the network. */ }
     if (loaded) {
-      $('#load-notice').textContent = `Не удалось проверить обновления. Показаны данные от ${timestampLabel(payload.generatedAt)}. Повторим автоматически; фильтры сохранены.`;
+      renderSourceInformation(); render(); commit(false);
+      $('#load-notice').textContent = `Нет доступа к опубликованному снимку. Показана сохранённая версия от ${timestampLabel(payload.generatedAt)}.`;
       $('#load-notice').hidden = false;
     } else {
       $('#results').setAttribute('aria-busy', 'false');
-      $('#results').innerHTML = '<div class="empty-state"><h3>Не удалось загрузить каталог</h3><p>Проверьте подключение или откройте исходную таблицу. Фильмы не заменяются демонстрационными данными.</p><button class="button secondary" data-retry>Повторить</button></div>';
+      $('#results').innerHTML = '<div class="empty-state"><h3>Каталог временно недоступен</h3><p>Не удалось загрузить опубликованный снимок. Попробуйте открыть страницу позднее.</p></div>';
       $('#result-count').textContent = 'Каталог недоступен';
       $('#hero-stats').textContent = 'Каталог временно недоступен';
     }
-    if (!background) console.warn('Catalog load failed:', error instanceof Error ? error.message : 'unknown error');
-  } finally {
-    clearTimeout(timer);
-    lastCheckedAt = Date.now();
-    refreshInFlight = false;
-    if (requestId === requestCounter) $('#refresh-button').disabled = false;
-  }
+    console.warn('Catalog load failed:', error instanceof Error ? error.message : 'unknown error');
+  } finally { clearTimeout(timer); }
 }
-function refreshWhenIdle() {
-  if (document.hidden || refreshInFlight || Date.now() - lastCheckedAt < AUTO_REFRESH_MS) return;
-  // Do not replace a focused result, open dialog, or dropdown while it is being used.
-  if ($('#film-dialog').open || [...widgets.values()].some(widget => widget.opened)) return;
-  if (document.activeElement && $('#results').contains(document.activeElement)) return;
-  void loadCatalog(false, true);
-}
-setInterval(refreshWhenIdle, AUTO_REFRESH_MS);
-document.addEventListener('visibilitychange', refreshWhenIdle);
-window.addEventListener('focus', refreshWhenIdle);
 
 let searchTimer;
 $('#title-search').addEventListener('input', event => {
@@ -333,7 +284,6 @@ $('#title-search').addEventListener('keydown', event => { if (event.key === 'Esc
 $('#sort').addEventListener('change', event => { state.sort = event.target.value; state.page = 1; render(); commit(); });
 $('#page-size').addEventListener('change', event => { state.pageSize = Number(event.target.value); state.page = 1; render(); commit(); });
 $('#reset-filters').addEventListener('click', reset);
-$('#refresh-button').addEventListener('click', () => loadCatalog(true));
 $('#mobile-filters').addEventListener('click', () => {
   const open = $('#filter-panel').classList.toggle('mobile-open');
   $('#mobile-filters').setAttribute('aria-expanded', String(open));
@@ -351,7 +301,6 @@ $('#results').addEventListener('click', event => {
   if (film) openRecord(film.dataset.film);
   else if (genre) { state.filters.genres = [genre.dataset.genre]; state.page = 1; render(); commit(); }
   else if (event.target.closest('[data-reset]')) reset();
-  else if (event.target.closest('[data-retry]')) loadCatalog(true);
 });
 $('#results').addEventListener('error', event => { if (event.target.tagName === 'IMG') event.target.remove(); }, true);
 $('#pagination').addEventListener('click', event => {

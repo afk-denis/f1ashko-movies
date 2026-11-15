@@ -1,110 +1,77 @@
-"""Test the deployed loader using explicitly synthetic successive JSON snapshots.
-Clock advancement avoids five-minute waits; it does not call the film API.
+"""Passive-site regression checks. Filename retained for workflow compatibility.
+No repeated loads, refresh controls, external API requests or writes are permitted.
 """
-import copy
 import json
 import os
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import urlsplit
 from playwright.sync_api import sync_playwright, expect
 
 BASE = os.environ.get('CATALOG_TEST_URL', 'https://d-malashin.github.io/f1ashko-movies/').rstrip('/') + '/'
-OUT = Path('test-results')
-OUT.mkdir(exist_ok=True)
-checks, errors = [], []
-
-def check(name, condition=True):
-    if not condition:
+OUT = Path(os.environ.get('SCREENSHOT_DIR', 'test-results'))
+OUT.mkdir(parents=True, exist_ok=True)
+checks = []
+def check(name, ok=True):
+    if not ok:
         raise AssertionError(name)
     checks.append(name)
     print('PASS:', name, flush=True)
 
-old = {'schemaVersion': 1, 'generatedAt': '2026-11-15T18:00:00Z', 'records': [
-    {'id': 'r-' + str(i), 'filmId': str(i + 1), 'title': 'Общий фильм ' + str(i), 'year': 2000,
-     'genres': ['драма'], 'countries': ['Россия'], 'actors': [], 'directors': [], 'type': 'Фильм',
-     'watchedAt': '2026-11-15', 'rating': 7.0, 'sourceRow': i + 2}
-    for i in range(55)
-]}
-new = copy.deepcopy(old)
-new['generatedAt'] = '2026-11-15T19:00:00Z'
-new['records'].append({**old['records'][0], 'id': 'r-new', 'filmId': '999', 'title': 'Общий фильм новый', 'sourceRow': 57})
-
 with sync_playwright() as pw:
-    browser = pw.chromium.launch(headless=True)
-    context = browser.new_context(viewport={'width': 1440, 'height': 1000}, reduced_motion='reduce')
-    state = {'data': old, 'fail': False, 'calls': 0}
-    def respond(route):
-        state['calls'] += 1
-        if state['fail']:
-            route.fulfill(status=503, body='Temporary test failure')
-        else:
-            route.fulfill(json=state['data'])
-    context.route('**/data/catalog.json*', respond)
+    options = {'headless': True}
+    if os.environ.get('CHROMIUM_PATH'):
+        options['executable_path'] = os.environ['CHROMIUM_PATH']
+    browser = pw.chromium.launch(**options)
+    context = browser.new_context(viewport={'width': 1440, 'height': 1080})
+    requests, errors = [], []
+    context.on('request', lambda r: requests.append({'url': r.url, 'method': r.method, 'type': r.resource_type, 'headers': r.headers}))
     page = context.new_page()
-    page.on('pageerror', lambda e: errors.append(str(e)))
+    page.on('pageerror', lambda error: errors.append(str(error)))
     page.clock.install()
-    try:
-        page.goto(BASE + '?q=' + quote('Общий') + '&genres=' + quote('драма') + '&sort=title-asc&size=12&page=2&view=grid', wait_until='domcontentloaded')
-        expect(page.locator('#result-count strong')).to_have_text('55')
-        expect(page.locator('#refresh-button')).to_be_enabled()
-        expect(page.locator('#pagination [aria-current=page]')).to_have_text('2')
-        previous_url = page.url
-        state['data'] = new
-        page.clock.fast_forward(600100)
-        expect(page.locator('#result-count strong')).to_have_text('56')
-        expect(page.locator('#hero-stats strong')).to_have_text('56')
-        expect(page.locator('#pagination [aria-current=page]')).to_have_text('2')
-        expect(page.locator('#title-search')).to_have_value('Общий')
-        expect(page.locator('#sort')).to_have_value('title-asc')
-        expect(page.locator('#page-size')).to_have_value('12')
-        expect(page.locator('#results')).to_have_class('results-grid')
-        check('automatic refresh loads a later snapshot without rebuilding or reloading the browser page', state['calls'] >= 2)
-        check('refresh preserves title, genre, sorting, page size, page and view', previous_url == page.url)
-        expect(page.locator('#refresh-button')).to_be_enabled()
-        page.locator('.movie-card').first.evaluate('(node) => node.dataset.retained = "yes"')
-        page.locator('#refresh-button').click()
-        expect(page.locator('#toast')).to_contain_text('последняя опубликованная версия')
-        check('unchanged data do not recreate result nodes', page.locator('[data-retained=yes]').count() == 1)
-        expect(page.locator('#refresh-button')).to_be_enabled()
-        state['data'] = old
-        page.locator('#refresh-button').click()
-        expect(page.locator('#load-notice')).to_be_visible()
-        expect(page.locator('#result-count strong')).to_have_text('56')
-        check('an older CDN snapshot cannot replace newer data')
-        expect(page.locator('#refresh-button')).to_be_enabled()
-        state['fail'] = True
-        page.locator('#refresh-button').click()
-        expect(page.locator('#refresh-button')).to_be_enabled()
-        expect(page.locator('#load-notice')).to_be_visible()
-        expect(page.locator('#result-count strong')).to_have_text('56')
-        check('network error keeps current data and filter state', page.url == previous_url)
-        state['fail'] = False
-        state['data'] = {'schemaVersion': 1, 'generatedAt': '2026-11-15T20:00:00Z', 'records': []}
-        page.locator('#refresh-button').click()
-        expect(page.locator('#refresh-button')).to_be_enabled()
-        expect(page.locator('#result-count strong')).to_have_text('56')
-        check('an empty response cannot erase the catalog')
-        state['data'] = new
-        page.locator('#refresh-button').click()
-        expect(page.locator('#load-notice')).to_be_hidden()
-        check('successful retry clears the warning')
-
-        offline = browser.new_context()
-        offline.add_init_script('localStorage.setItem("f1ashko-public-catalog-v1", ' + json.dumps(json.dumps(new, ensure_ascii=False)) + ');')
-        offline.route('**/data/catalog.json*', lambda route: route.fulfill(status=503, body='Unavailable'))
-        op = offline.new_page()
-        op.on('pageerror', lambda e: errors.append(str(e)))
-        op.goto(BASE, wait_until='domcontentloaded')
-        expect(op.locator('#result-count strong')).to_have_text('56')
-        expect(op.locator('#load-notice')).to_be_visible()
-        check('first load can use explicitly labeled cached data when the endpoint is unavailable')
-        offline.close()
-        check('no JavaScript exceptions in refresh and recovery tests', not errors)
-        report = {'status': 'passed', 'mode': 'synthetic snapshots against deployed runtime', 'checks': checks, 'checkCount': len(checks), 'pageErrors': errors}
-        (OUT/'refresh-report.json').write_text(json.dumps(report, ensure_ascii=False, indent=2))
-        print(json.dumps(report, ensure_ascii=False), flush=True)
-    except Exception:
-        page.screenshot(path=str(OUT/'refresh-failure.png'), full_page=True)
-        raise
-    finally:
-        browser.close()
+    page.goto(BASE, wait_until='domcontentloaded')
+    expect(page.locator('.movie-card').first).to_be_visible()
+    xhr = lambda: [r for r in requests if r['type'] in ['fetch', 'xhr', 'websocket', 'eventsource']]
+    check('Exactly one catalog fetch at startup', len(xhr()) == 1)
+    check('Request is cacheable, same-origin, without cache-busting query', urlsplit(xhr()[0]['url']).netloc == urlsplit(BASE).netloc and urlsplit(xhr()[0]['url']).path.endswith('/data/catalog.json') and not urlsplit(xhr()[0]['url']).query)
+    expect(page.locator('#refresh-button, [data-retry], form')).to_have_count(0)
+    check('No refresh, retry or form controls')
+    page.locator('#genres-button').click()
+    page.locator('#genres-search').fill('acti')
+    page.locator('#genres-search').press('ArrowDown')
+    page.locator('#genres-search').press('Enter')
+    page.locator('#genres-search').press('Escape')
+    page.locator('#sort').select_option('rating-desc')
+    page.locator('#page-size').select_option('12')
+    page.locator('#reset-filters').click()
+    page.get_by_role('button', name='Следующая страница', exact=True).click()
+    page.locator('[data-view=grid]').click()
+    page.locator('.movie-title').first.click()
+    page.locator('#close-dialog').click()
+    page.locator('#title-search').fill('неттакогофильма1234')
+    page.clock.fast_forward(200)
+    expect(page.locator('.empty-state')).to_be_visible()
+    page.locator('[data-reset]').click()
+    check('Search, filters, sorting, pagination and dialogs do not fetch data', len(xhr()) == 1)
+    for _ in range(5):
+        page.evaluate("window.dispatchEvent(new Event('focus')); document.dispatchEvent(new Event('visibilitychange')); window.dispatchEvent(new Event('online'))")
+    page.clock.fast_forward(60 * 60 * 1000)
+    check('One hour and repeated focus/visibility/online events do not poll', len(xhr()) == 1)
+    check('No write requests or API credentials', all(r['method'] == 'GET' and 'x-api-key' not in r['headers'] and 'authorization' not in r['headers'] for r in requests))
+    check('No direct requests to Google Sheets, Apps Script or film API', not any(any(part in r['url'] for part in ['docs.google.com', 'script.google.com', '/api/v1/', '/api/v2.', 'api.github.com']) for r in requests))
+    check('No JavaScript exceptions', not errors)
+    # Fresh context: one failed initial fetch, no network retries and no retry button.
+    offline = browser.new_context()
+    offline_requests = []
+    offline.route('**/data/catalog.json*', lambda route: route.abort())
+    op = offline.new_page()
+    op.on('request', lambda r: offline_requests.append(r.url) if '/data/catalog.json' in r.url else None)
+    op.clock.install()
+    op.goto(BASE, wait_until='domcontentloaded')
+    expect(op.locator('.empty-state')).to_be_visible()
+    expect(op.locator('[data-retry], #refresh-button')).to_have_count(0)
+    op.clock.fast_forward(60 * 60 * 1000)
+    check('Failure does not trigger a retry loop', len(offline_requests) == 1)
+    report = {'status': 'passed', 'mode': 'passive-static', 'checks': checks, 'checkCount': len(checks), 'dataRequests': xhr(), 'pageErrors': errors}
+    (OUT / 'passive-network-report.json').write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
+    print(json.dumps({'status':'passed', 'checks':len(checks)}, ensure_ascii=False))
+    browser.close()
