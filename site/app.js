@@ -205,9 +205,8 @@ function reset() {
   render(); commit();
 }
 function renderSourceInformation() {
-  const unique = new Set(records.map(r => r.filmId || r.title)).size;
-  $('#hero-stats').innerHTML = `<span>Всего в каталоге: <strong>${number(unique)}</strong></span>`;
-  $('#sync-status').textContent = `Снимок таблицы: ${timestampLabel(payload.generatedAt)}`;
+  $('#hero-stats').innerHTML = `<span>Всего в каталоге: <strong>${number(records.length)}</strong></span>`;
+  $('#sync-status').textContent = `Обновлено: ${timestampLabel(payload.generatedAt)}`;
 }
 function creditMarkup(values) {
   if (!values.length) return '<span class="missing-genres">Пока не заполнено в таблице</span>';
@@ -217,12 +216,11 @@ function creditMarkup(values) {
 function openRecord(id) {
   const record = records.find(r => r.id === id);
   if (!record) return;
-  $('#dialog-content').innerHTML = `<p class="dialog-eyebrow">${e(record.type.toUpperCase())} / ПРОСМОТР НА СТРИМЕ</p><h2 class="dialog-title" id="dialog-title">${e(record.title)}</h2>
+  $('#dialog-content').innerHTML = `<p class="dialog-eyebrow">${e(record.type.toUpperCase())}</p><h2 class="dialog-title" id="dialog-title">${e(record.title)}</h2>
     <p class="dialog-subtitle">Смотрели ${e(dateLabel(record.watchedAt))}${record.rating !== null ? ` · Кинопоиск ${record.rating.toFixed(1)}` : ''}</p>
     <div class="dialog-tags">${record._values.genres.map(g => `<span>${e(g.label)}</span>`).join('') || '<span>Жанры ещё не заполнены</span>'}</div>
     <dl class="dialog-details"><dt>Год выпуска</dt><dd>${record.year || 'Не указан'}</dd><dt>Страны</dt><dd>${creditMarkup(record.countries)}</dd><dt>Режиссёры</dt><dd>${creditMarkup(record.directors)}</dd><dt>Актёры</dt><dd>${creditMarkup(record.actors)}</dd></dl>
-    <div class="dialog-actions">${record.watchUrl ? `<a class="button primary" href="${e(record.watchUrl)}" target="_blank" rel="noopener noreferrer">▶ Открыть запись ↗</a>` : '<span class="no-recording">В таблице нет ссылки на запись</span>'}${record.kinopoiskUrl ? `<a class="button secondary" href="${e(record.kinopoiskUrl)}" target="_blank" rel="noopener noreferrer">Кинопоиск ↗</a>` : ''}</div>
-    <p class="dialog-note">${record.filmVerified ? 'Метаданные фильма получены через API.' : 'Жанры показаны как в таблице; проверка через API ещё не подтверждена.'} Запись открывается на исходной площадке, где может требоваться подписка.</p>`;
+    <div class="dialog-actions">${record.watchUrl ? `<a class="button primary" href="${e(record.watchUrl)}" target="_blank" rel="noopener noreferrer">▶ Открыть запись ↗</a>` : '<span class="no-recording">В таблице нет ссылки на запись</span>'}${record.kinopoiskUrl ? `<a class="button secondary" href="${e(record.kinopoiskUrl)}" target="_blank" rel="noopener noreferrer">Кинопоиск ↗</a>` : ''}</div>`;
   if (!$('#film-dialog').open) $('#film-dialog').showModal();
 }
 

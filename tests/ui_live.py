@@ -61,9 +61,10 @@ with sync_playwright() as pw:
         check('reference scene served by our own Pages host', image.status == 200 and len(image.body()) > 1000)
         count(page, len(records))
         expect(page.locator('#hero-stats strong')).to_have_count(1)
-        unique = len({str(r.get('filmId') or r['title']) for r in records})
         hero_count = int(re.sub(r'\D', '', page.locator('#hero-stats strong').inner_text()))
-        check('hero has exactly one unique-title counter', hero_count == unique)
+        check('hero and unfiltered list count the same catalog records', hero_count == len(records))
+        expect(page.locator('#sync-status')).to_have_text(re.compile(r'^Обновлено: .+'))
+        check('footer uses the updated-at label')
         expect(page.locator('.hero-actions, .hero-side-note, #random-button, #recording-only')).to_have_count(0)
         check('CTA, extra buttons and recording-only checkbox are removed')
         expect(page.locator('#hero-title')).to_have_text('Эй, ты. Наконец-то проснулся.')
@@ -111,6 +112,8 @@ with sync_playwright() as pw:
         action = [r for r in records if 'боевик' in [norm(g) for g in r.get('genres', [])]]
         count(page, len(action))
         check('genre keyboard selection and result count')
+        check('hero remains the catalog total when filters are applied',
+              int(re.sub(r'\D', '', page.locator('#hero-stats strong').inner_text())) == len(records))
         expect(page.locator('.active-chip').first).to_have_css('color', 'rgb(255, 216, 129)')
         check('selected filters use warm gold instead of teal')
         select(page, 'genres', 'хорр', 'ужасы')
@@ -175,6 +178,11 @@ with sync_playwright() as pw:
         page.locator('.movie-title').first.click()
         expect(page.locator('#film-dialog')).to_be_visible()
         check('card layout and film dialog')
+        expect(page.locator('#film-dialog .dialog-note')).to_have_count(0)
+        expect(page.locator('#film-dialog .dialog-eyebrow')).not_to_contain_text('ПРОСМОТР НА СТРИМЕ')
+        expect(page.locator('#film-dialog')).not_to_contain_text('Метаданные фильма получены через API.')
+        expect(page.locator('#film-dialog')).not_to_contain_text('может требоваться подписка')
+        check('film dialog omits API, subscription and redundant stream notices')
         page.locator('#close-dialog').click()
         page.locator('[data-view=list]').click()
         for field in ['actors', 'directors']:
@@ -236,10 +244,17 @@ with sync_playwright() as pw:
         select(sp, 'directors', 'анна', 'Анна Тестова')
         expect(sp.locator('.movie-title')).to_have_text(['Проверка А'])
         check('synthetic: cast + director filters and е/ё normalization')
+        fixture['records'].append({**copy.deepcopy(fixture['records'][0]), 'id': 'fixture-repeat'})
+        sp.goto(BASE, wait_until='domcontentloaded')
+        expect(sp.locator('.movie-card')).to_have_count(3)
+        expect(sp.locator('#hero-stats strong')).to_have_text('3')
+        count(sp, 3)
+        expect(sp.locator('#page-range')).to_have_text('1–3 из 3')
+        check('synthetic: repeated films count consistently as separate catalog entries')
         synthetic.close()
         check('browsing never sends an API key or film-detail API request', not any('x-api-key' in r['headers'] or '/api/v2.2/films/' in r['url'] for r in requests))
         check('no browser exceptions across all viewports', not errors)
-        report = {'status': 'passed', 'baseUrl': BASE, 'checks': checks, 'checkCount': len(checks), 'catalogStats': data.get('stats'), 'generatedAt': data.get('generatedAt'), 'syntheticOnly': ['cast/director fixture', 'old linked bookmark'], 'pageErrors': errors}
+        report = {'status': 'passed', 'baseUrl': BASE, 'checks': checks, 'checkCount': len(checks), 'catalogStats': data.get('stats'), 'generatedAt': data.get('generatedAt'), 'syntheticOnly': ['cast/director fixture', 'old linked bookmark', 'repeated screening'], 'pageErrors': errors}
         (OUT/'ui-report.json').write_text(json.dumps(report, ensure_ascii=False, indent=2))
         print(json.dumps(report, ensure_ascii=False), flush=True)
     except Exception:
